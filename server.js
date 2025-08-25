@@ -118,6 +118,19 @@ async function getRecentActivities(days = 7) {
   return response.data;
 }
 
+async function getActivity(activityId) {
+  const accessToken = await getAccessToken();
+  
+  const response = await axios.get(
+    `https://www.strava.com/api/v3/activities/${activityId}`,
+    {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }
+  );
+  
+  return response.data;
+}
+
 async function updateActivityDescription(activityId, description) {
   const accessToken = await getAccessToken();
   
@@ -144,6 +157,66 @@ function formatTime(seconds) {
 function generateProgressBars(distance, goal, segments = 10) {
   const completed = Math.min(Math.floor((distance / goal) * segments), segments);
   return '🟢'.repeat(completed) + '⚪️'.repeat(segments - completed);
+}
+
+// Clean up existing description (remove empty lines, etc.)
+function cleanExistingDescription(description) {
+  if (!description) return '';
+  
+  return description
+    .split('\n')
+    .filter(line => line.trim() !== '') // Remove empty lines
+    .filter(line => !line.includes('🔥 Streak:') && 
+                   !line.includes('📅 Monthly:') && 
+                   !line.includes('📊 Yearly:') &&
+                   !line.includes('🏃🏻‍♂️Daily Run Streak:')) // Remove existing streak info
+    .join('\n')
+    .trim();
+}
+
+// Generate the new description with existing content at the end
+async function generateDescription(streakData, activityId) {
+  try {
+    // Get the existing activity to preserve its description
+    const activity = await getActivity(activityId);
+    const existingDescription = cleanExistingDescription(activity.description);
+    
+    const stats = await loadStatsData();
+    
+    const streakSection = `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
+
+🔥 Streak: ${streakData.currentStreak} days | 🏃🏻‍♂️${(streakData.totalDistance / 1000).toFixed(1)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
+
+📅 Monthly: ${stats.monthlyDistance.toFixed(1)}/${stats.monthlyGoal} km 
+${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal)}
+
+📊 Yearly: ${stats.yearlyDistance.toFixed(1)}/${stats.yearlyGoal} km 
+${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal)}
+
+📷 @DailyRunGuy`;
+
+    // Combine streak info with existing description (if any)
+    if (existingDescription) {
+      return `${streakSection}\n\n${existingDescription}`;
+    }
+    
+    return streakSection;
+  } catch (error) {
+    console.error('Error generating description:', error);
+    // Fallback if we can't get the activity
+    const stats = await loadStatsData();
+    return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
+
+🔥 Streak: ${streakData.currentStreak} days | 🏃🏻‍♂️${(streakData.totalDistance / 1000).toFixed(1)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
+
+📅 Monthly: ${stats.monthlyDistance.toFixed(1)}/${stats.monthlyGoal} km 
+${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal)}
+
+📊 Yearly: ${stats.yearlyDistance.toFixed(1)}/${stats.yearlyGoal} km 
+${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal)}
+
+📷 @DailyRunGuy`;
+  }
 }
 
 // Main streak function
@@ -199,19 +272,8 @@ async function updateRunStreak() {
     // Save updated data
     await saveStreakData(streakData);
 
-    // Generate description
-    const stats = await loadStatsData();
-    const description = `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-
-🔥 Streak: ${streakData.currentStreak} days | 🏃🏻‍♂️${(streakData.totalDistance / 1000).toFixed(1)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
-
-📅 Monthly: ${stats.monthlyDistance.toFixed(1)}/${stats.monthlyGoal} km 
-${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal)}
-
-📊 Yearly: ${stats.yearlyDistance.toFixed(1)}/${stats.yearlyGoal} km 
-${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal)}
-
-📷 @DailyRunGuy`;
+    // Generate description (preserves existing content)
+    const description = await generateDescription(streakData, todaysRun.id);
 
     // Update activity description
     await updateActivityDescription(todaysRun.id, description);
@@ -228,6 +290,40 @@ ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal)}
   }
 }
 
+// Manual update functions
+async function manuallyUpdateStreak(newStreakCount, newLongestStreak, newTotalRuns, newTotalDistance, newTotalTime, newTotalElevation, newStreakStartDate) {
+  const streakData = await loadStreakData();
+  
+  streakData.currentStreak = parseInt(newStreakCount);
+  streakData.longestStreak = parseInt(newLongestStreak);
+  streakData.totalRuns = parseInt(newTotalRuns);
+  streakData.totalDistance = parseFloat(newTotalDistance);
+  streakData.totalTime = parseFloat(newTotalTime);
+  streakData.totalElevation = parseFloat(newTotalElevation);
+  streakData.streakStartDate = newStreakStartDate;
+  
+  await saveStreakData(streakData);
+  
+  return { success: true, message: "Streak updated manually" };
+}
+
+async function manuallyUpdateStats(monthlyDistance, yearlyDistance, monthlyTime, yearlyTime, monthlyElevation, yearlyElevation, monthlyGoal, yearlyGoal) {
+  const stats = await loadStatsData();
+  
+  stats.monthlyDistance = parseFloat(monthlyDistance);
+  stats.yearlyDistance = parseFloat(yearlyDistance);
+  stats.monthlyTime = parseFloat(monthlyTime);
+  stats.yearlyTime = parseFloat(yearlyTime);
+  stats.monthlyElevation = parseFloat(monthlyElevation);
+  stats.yearlyElevation = parseFloat(yearlyElevation);
+  stats.monthlyGoal = parseFloat(monthlyGoal);
+  stats.yearlyGoal = parseFloat(yearlyGoal);
+  
+  await saveStatsData(stats);
+  
+  return { success: true, message: "Stats updated manually" };
+}
+
 // Routes
 app.get('/', (req, res) => {
   res.send(`
@@ -236,6 +332,8 @@ app.get('/', (req, res) => {
     <p>Visit <a href="/streak-status">/streak-status</a> to check current streak</p>
     <p>Visit <a href="/streak-details">/streak-details</a> for detailed streak info</p>
     <p>Visit <a href="/stats">/stats</a> to view running statistics</p>
+    <p>Visit <a href="/manual-streak-update">/manual-streak-update</a> to manually adjust streak</p>
+    <p>Visit <a href="/manual-stats-update">/manual-stats-update</a> to manually adjust stats</p>
     <p>Visit <a href="/auth/strava">/auth/strava</a> to authenticate with Strava</p>
   `);
 });
@@ -305,7 +403,99 @@ app.get('/stats', async (req, res) => {
   }
 });
 
-// Manual update forms would go here (similar to previous versions)
+// Manual update forms
+app.get('/manual-streak-update', (req, res) => {
+  res.send(`
+    <h1>Manual Streak Update</h1>
+    <form action="/manual-streak-update" method="POST">
+      <label for="currentStreak">Current Streak:</label>
+      <input type="number" id="currentStreak" name="currentStreak" required>
+      <br>
+      <label for="longestStreak">Longest Streak:</label>
+      <input type="number" id="longestStreak" name="longestStreak" required>
+      <br>
+      <label for="totalRuns">Total Runs:</label>
+      <input type="number" id="totalRuns" name="totalRuns" required>
+      <br>
+      <label for="totalDistance">Total Distance (meters):</label>
+      <input type="number" id="totalDistance" name="totalDistance" required>
+      <br>
+      <label for="totalTime">Total Time (seconds):</label>
+      <input type="number" id="totalTime" name="totalTime" required>
+      <br>
+      <label for="totalElevation">Total Elevation (meters):</label>
+      <input type="number" id="totalElevation" name="totalElevation" required>
+      <br>
+      <label for="streakStartDate">Streak Start Date (YYYY-MM-DD):</label>
+      <input type="date" id="streakStartDate" name="streakStartDate" required>
+      <br>
+      <button type="submit">Update Streak</button>
+    </form>
+    <a href="/">Go back</a>
+  `);
+});
+
+app.post('/manual-streak-update', async (req, res) => {
+  try {
+    const { currentStreak, longestStreak, totalRuns, totalDistance, totalTime, totalElevation, streakStartDate } = req.body;
+    const result = await manuallyUpdateStreak(
+      currentStreak, longestStreak, totalRuns, totalDistance, totalTime, totalElevation, streakStartDate
+    );
+    
+    res.send(`<h1>Manual Update Result</h1><p>${result.message}</p><a href="/streak-details">View Streak</a><br><a href="/">Home</a>`);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+  }
+});
+
+app.get('/manual-stats-update', (req, res) => {
+  res.send(`
+    <h1>Manual Stats Update</h1>
+    <form action="/manual-stats-update" method="POST">
+      <h3>Monthly Stats</h3>
+      <label for="monthlyDistance">Monthly Distance (km):</label>
+      <input type="number" step="0.1" id="monthlyDistance" name="monthlyDistance" required>
+      <br>
+      <label for="monthlyTime">Monthly Time (seconds):</label>
+      <input type="number" id="monthlyTime" name="monthlyTime" required>
+      <br>
+      <label for="monthlyElevation">Monthly Elevation (meters):</label>
+      <input type="number" id="monthlyElevation" name="monthlyElevation" required>
+      <br>
+      <label for="monthlyGoal">Monthly Goal (km):</label>
+      <input type="number" step="0.1" id="monthlyGoal" name="monthlyGoal" required>
+      
+      <h3>Yearly Stats</h3>
+      <label for="yearlyDistance">Yearly Distance (km):</label>
+      <input type="number" step="0.1" id="yearlyDistance" name="yearlyDistance" required>
+      <br>
+      <label for="yearlyTime">Yearly Time (seconds):</label>
+      <input type="number" id="yearlyTime" name="yearlyTime" required>
+      <br>
+      <label for="yearlyElevation">Yearly Elevation (meters):</label>
+      <input type="number" id="yearlyElevation" name="yearlyElevation" required>
+      <br>
+      <label for="yearlyGoal">Yearly Goal (km):</label>
+      <input type="number" step="0.1" id="yearlyGoal" name="yearlyGoal" required>
+      <br>
+      <button type="submit">Update Stats</button>
+    </form>
+    <a href="/">Go back</a>
+  `);
+});
+
+app.post('/manual-stats-update', async (req, res) => {
+  try {
+    const { monthlyDistance, yearlyDistance, monthlyTime, yearlyTime, monthlyElevation, yearlyElevation, monthlyGoal, yearlyGoal } = req.body;
+    const result = await manuallyUpdateStats(
+      monthlyDistance, yearlyDistance, monthlyTime, yearlyTime, monthlyElevation, yearlyElevation, monthlyGoal, yearlyGoal
+    );
+    
+    res.send(`<h1>Manual Update Result</h1><p>${result.message}</p><a href="/stats">View Stats</a><br><a href="/">Home</a>`);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
