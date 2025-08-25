@@ -42,11 +42,11 @@ async function loadStreakData() {
   const defaults = {
     currentStreak: 238,
     longestStreak: 238,
-    totalRuns: 238,
+    totalRuns: 250,
     totalDistance: 2346600,
     totalTime: 699900,
     totalElevation: 25714,
-    streakStartDate: "2024-01-01",
+    streakStartDate: "2024-31-12",
     lastRunDate: new Date(Date.now() - 86400000).toDateString(),
     manuallyUpdated: false,
     lastManualUpdate: null
@@ -62,8 +62,8 @@ async function loadStatsData() {
   const defaults = {
     monthlyDistance: 229.5,
     yearlyDistance: 2336.0,
-    monthlyTime: 0,
-    yearlyTime: 0,
+    monthlyTime: 27519,
+    yearlyTime: 649710,
     monthlyElevation: 2793,
     yearlyElevation: 25595,
     monthlyGoal: 250,
