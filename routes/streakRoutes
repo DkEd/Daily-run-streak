@@ -1,0 +1,37 @@
+const express = require('express');
+const stravaAuth = require('../services/stravaAuth');
+const { updateRunStreak, getCurrentStreak, getAllStreakData } = require('../controllers/streakController');
+const router = express.Router();
+
+router.get('/update-streak', async (req, res) => {
+  try {
+    if (!stravaAuth.isAuthenticated()) {
+      return res.send('<h1>Not Authenticated</h1><p><a href="/auth/strava">Authenticate first</a></p>');
+    }
+    
+    const result = await updateRunStreak();
+    res.send(`<h1>Streak Update</h1><pre>${JSON.stringify(result, null, 2)}</pre><a href="/">Home</a>`);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+  }
+});
+
+router.get('/streak-status', async (req, res) => {
+  try {
+    const streak = await getCurrentStreak();
+    res.send(`<h1>Current Streak: ${streak} days</h1><a href="/">Home</a>`);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
+  }
+});
+
+router.get('/streak-details', async (req, res) => {
+  try {
+    const data = await getAllStreakData();
+    res.send(`<h1>Streak Details</h1><pre>${JSON.stringify(data, null, 2)}</pre><a href="/">Home</a>`);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
+  }
+});
+
+module.exports = router;
