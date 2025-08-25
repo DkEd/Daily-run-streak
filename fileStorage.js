@@ -18,7 +18,7 @@ class FileStorage {
       // If file doesn't exist, initialize with default data
       console.log('No streak data found, initializing new file');
       this.streakData = {
-        currentStreak: 0,
+        currentStreak: 237,
         lastRunDate: null,
         lastRunId: null
       };
