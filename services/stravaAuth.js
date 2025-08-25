@@ -2,9 +2,6 @@ const axios = require('axios');
 
 class StravaAuth {
   constructor() {
-    this.accessToken = process.env.ACCESS_TOKEN;
-    this.refreshToken = process.env.REFRESH_TOKEN;
-    this.expiresAt = process.env.EXPIRES_AT;
     this.clientId = process.env.CLIENT_ID;
     this.clientSecret = process.env.CLIENT_SECRET;
     this.redirectUri = process.env.REDIRECT_URI;
@@ -25,6 +22,7 @@ class StravaAuth {
 
       const { access_token, refresh_token, expires_at, athlete } = response.data;
       
+      // Store tokens in environment variables
       process.env.ACCESS_TOKEN = access_token;
       process.env.REFRESH_TOKEN = refresh_token;
       process.env.EXPIRES_AT = expires_at;
@@ -37,32 +35,40 @@ class StravaAuth {
   }
 
   async refreshTokenIfNeeded() {
-    if (!this.expiresAt || Date.now() / 1000 >= this.expiresAt) {
+    const accessToken = process.env.ACCESS_TOKEN;
+    const refreshToken = process.env.REFRESH_TOKEN;
+    const expiresAt = process.env.EXPIRES_AT;
+    
+    if (!accessToken || !refreshToken || !expiresAt || Date.now() / 1000 >= expiresAt) {
       try {
+        console.log('Refreshing access token...');
         const response = await axios.post('https://www.strava.com/oauth/token', {
           client_id: this.clientId,
           client_secret: this.clientSecret,
-          refresh_token: this.refreshToken,
+          refresh_token: refreshToken,
           grant_type: 'refresh_token'
         });
         
         const { access_token, refresh_token, expires_at } = response.data;
         
+        // Update environment variables
         process.env.ACCESS_TOKEN = access_token;
         process.env.REFRESH_TOKEN = refresh_token;
         process.env.EXPIRES_AT = expires_at;
         
         console.log('Access token refreshed successfully');
+        return access_token;
       } catch (error) {
         console.error('Error refreshing token:', error.response?.data || error.message);
         throw new Error('Token refresh failed. Please re-authenticate at /auth/strava');
       }
     }
+    
+    return accessToken;
   }
 
   async getAccessToken() {
-    await this.refreshTokenIfNeeded();
-    return process.env.ACCESS_TOKEN;
+    return await this.refreshTokenIfNeeded();
   }
 
   isAuthenticated() {
