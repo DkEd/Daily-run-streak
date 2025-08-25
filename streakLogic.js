@@ -29,7 +29,7 @@ class StreakLogic {
         // Found a run on this date
         if (!foundStart) {
           // This is the most recent run in the streak
-          const streakMatch = runOnDate.description && runOnDate.description.match(/🔥 Streak: day (\d+) 🏃/);
+          const streakMatch = runOnDate.description && runOnDate.description.match(/Streak: day (\d+)/);
           
           if (streakMatch) {
             // Found a streak marker, use this as the base
@@ -83,7 +83,7 @@ class StreakLogic {
     
     if (runToday) {
       // There was a run today - check if it already has a streak marker
-      const streakMatch = runToday.description && runToday.description.match(/🔥 Streak: day (\d+) 🏃/);
+      const streakMatch = runToday.description && runToday.description.match(/🔥Streak: day (\d+) 🏃/);
       
       if (streakMatch) {
         return { 
