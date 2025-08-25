@@ -1,7 +1,7 @@
 {
   "name": "strava-run-streak",
   "version": "1.0.0",
-  "description": "Strava Run Streak Updater",
+  "description": "Strava Run Streak Updater with Webhooks",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
