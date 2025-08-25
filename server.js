@@ -227,11 +227,6 @@ async function updateRunStreak() {
     const streakData = await loadStreakData();
     const todayDate = new Date().toDateString();
     
-    // Don't update if manually updated today
-    if (streakData.manuallyUpdated && streakData.lastManualUpdate === todayDate) {
-      return { message: "Skipping update - manually updated today", ...streakData };
-    }
-    
     const activities = await getRecentActivities(2);
     const today = formatDate(new Date());
     
@@ -251,18 +246,18 @@ async function updateRunStreak() {
       return { message: "Already processed today's run", ...streakData };
     }
 
-    // Update streak only if not manually updated
-    if (!streakData.manuallyUpdated) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      if (streakData.lastRunDate === yesterday.toDateString()) {
-        streakData.currentStreak += 1;
-      } else {
-        streakData.currentStreak = 1;
-        streakData.streakStartDate = todayDate;
-      }
-    }
+// Keep the manually set streak count, only update if not manually set
+if (!streakData.manuallyUpdated) {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  if (streakData.lastRunDate === yesterday.toDateString()) {
+    streakData.currentStreak += 1;
+  } else {
+    streakData.currentStreak = 1;
+    streakData.streakStartDate = todayDate;
+  }
+}
 
     // Update totals (always add today's run stats)
     streakData.totalRuns += 1;
