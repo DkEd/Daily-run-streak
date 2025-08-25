@@ -1,4 +1,5 @@
 node_modules/
-tokens.json
+data/
 .env
 .DS_Store
+*.log
