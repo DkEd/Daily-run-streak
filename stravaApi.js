@@ -1,4 +1,3 @@
-// stravaApi.js
 const axios = require('axios');
 const StravaAuth = require('./stravaAuth');
 
@@ -7,40 +6,28 @@ class StravaApi {
     this.auth = new StravaAuth();
   }
 
-  // Get recent activities from Strava (last 7 days)
-  async getRecentActivities() {
+  async getRecentActivities(days = 7) {
     const accessToken = await this.auth.getAccessToken();
-    
-    // Calculate date 7 days ago
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const after = Math.floor(sevenDaysAgo.getTime() / 1000);
+    const after = Math.floor(Date.now() / 1000) - (days * 24 * 60 * 60);
     
     const response = await axios.get(
-      `https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=50`,
+      `https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=30`,
       {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
+        headers: { 'Authorization': `Bearer ${accessToken}` }
       }
     );
     
     return response.data;
   }
 
-  // Update an activity's description
   async updateActivityDescription(activityId, description) {
     const accessToken = await this.auth.getAccessToken();
     
     await axios.put(
       `https://www.strava.com/api/v3/activities/${activityId}`,
+      { description },
       {
-        description: description
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
+        headers: { 'Authorization': `Bearer ${accessToken}` }
       }
     );
   }
