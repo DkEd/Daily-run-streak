@@ -1,225 +1,175 @@
 const express = require('express');
 const axios = require('axios');
 const app = express();
+
 const PORT = process.env.PORT || 3000;
+
+// Your Strava API credentials
+const CLIENT_ID = process.env.CLIENT_ID;
+const CLIENT_SECRET = process.env.CLIENT_SECRET;
+const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:3000/auth/callback';
 
 // Home route
 app.get('/', (req, res) => {
   res.send(`
-    <h1>Strava Run Streak Updater</h1>
-    <p>This app checks your recent runs and updates streak counts.</p>
-    <p>Visit <a href="/update-streak">/update-streak</a> to run the update.</p>
-    <p>Visit <a href="/auth/strava">/auth/strava</a> to re-authenticate if needed.</p>
+    <h1>Strava Run Streak Tracker</h1>
+    <p>Track your daily running streak with Strava integration.</p>
+    <a href="/auth/strava">Connect with Strava</a>
   `);
 });
 
 // Initiate Strava OAuth flow
 app.get('/auth/strava', (req, res) => {
-  const stravaAuthUrl = `https://www.strava.com/oauth/authorize?client_id=${process.env.CLIENT_ID}&response_type=code&redirect_uri=${process.env.REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all,activity:write`;
+  const stravaAuthUrl = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=auto&scope=activity:read_all`;
   res.redirect(stravaAuthUrl);
 });
+
+// Calculate run streak from activities
+async function calculateRunStreak(accessToken) {
+  try {
+    // Get activities from the last 60 days to ensure we capture the full streak
+    const now = new Date();
+    const sixtyDaysAgo = new Date(now.setDate(now.getDate() - 60)).getTime() / 1000;
+    
+    const activitiesResponse = await axios.get(
+      `https://www.strava.com/api/v3/athlete/activities?after=${sixtyDaysAgo}&per_page=200`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    
+    const activities = activitiesResponse.data;
+    
+    // Filter for runs only
+    const runs = activities.filter(activity => activity.type === 'Run');
+    
+    // Create a set of dates when the user ran (YYYY-MM-DD format)
+    const runDates = new Set();
+    runs.forEach(run => {
+      const runDate = new Date(run.start_date_local);
+      const dateString = runDate.toISOString().split('T')[0];
+      runDates.add(dateString);
+    });
+    
+    // Calculate streak by checking consecutive days backwards from today
+    let currentStreak = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to beginning of day
+    
+    // Check if user ran today
+    const todayString = today.toISOString().split('T')[0];
+    if (runDates.has(todayString)) {
+      currentStreak = 1;
+    } else {
+      // No run today, streak is 0
+      return 0;
+    }
+    
+    // Check previous days until we find a day without a run
+    for (let i = 1; i < 60; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(today.getDate() - i);
+      const dateString = checkDate.toISOString().split('T')[0];
+      
+      if (runDates.has(dateString)) {
+        currentStreak++;
+      } else {
+        break; // Streak ended
+      }
+    }
+    
+    return currentStreak;
+  } catch (error) {
+    console.error('Error calculating run streak:', error);
+    return 0;
+  }
+}
 
 // Handle Strava callback
 app.get('/auth/callback', async (req, res) => {
   try {
     const { code } = req.query;
-    
+
     if (!code) {
       return res.status(400).send('Authorization code missing');
     }
 
     // Exchange authorization code for access token
     const tokenResponse = await axios.post('https://www.strava.com/oauth/token', {
-      client_id: process.env.CLIENT_ID,
-      client_secret: process.env.CLIENT_SECRET,
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
       code,
       grant_type: 'authorization_code'
     });
 
-    const { access_token, refresh_token, expires_at, athlete } = tokenResponse.data;
+    const { access_token, athlete } = tokenResponse.data;
     
-    // Store tokens in environment variables (in a real app, you'd use a database)
-    process.env.ACCESS_TOKEN = access_token;
-    process.env.REFRESH_TOKEN = refresh_token;
-    process.env.EXPIRES_AT = expires_at;
+    // Calculate run streak
+    const runStreak = await calculateRunStreak(access_token);
     
+    // Display success message with streak
     res.send(`
-      <h1>Successfully Authenticated!</h1>
-      <p>Hello ${athlete.firstname} ${athlete.lastname}!</p>
-      <p>Your access token has been updated.</p>
-      <a href="/update-streak">Update Streak Now</a>
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #f7f9fc;
+          color: #333;
+        }
+        .container {
+          background: white;
+          border-radius: 10px;
+          padding: 30px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+          color: #FC4C02;
+          margin-top: 0;
+        }
+        .streak-display {
+          font-size: 24px;
+          font-weight: bold;
+          color: #FC4C02;
+          margin: 20px 0;
+          padding: 15px;
+          background-color: #FFF0E5;
+          border-radius: 8px;
+          text-align: center;
+        }
+        .btn {
+          display: inline-block;
+          background-color: #FC4C02;
+          color: white;
+          padding: 10px 20px;
+          text-decoration: none;
+          border-radius: 5px;
+          margin-top: 15px;
+        }
+        .btn:hover {
+          background-color: #e04300;
+        }
+      </style>
+      <div class="container">
+        <h1>Successfully Connected to Strava!</h1>
+        <p>Hello <strong>${athlete.firstname} ${athlete.lastname}</strong>!</p>
+        <div class="streak-display">
+          Daily Run Streak: ${runStreak} ${runStreak === 1 ? 'day' : 'days'}
+        </div>
+        <p>Your run streak is calculated based on consecutive days with running activities.</p>
+        <a href="/" class="btn">Go back home</a>
+      </div>
     `);
   } catch (error) {
     console.error('Authentication error:', error.response?.data || error.message);
-    res.status(500).send('Authentication failed. Check your server logs for details.');
-  }
-});
-
-// Refresh access token if expired
-async function refreshAccessTokenIfNeeded() {
-  if (!process.env.EXPIRES_AT || Date.now() / 1000 >= process.env.EXPIRES_AT) {
-    console.log('Refreshing access token...');
-    
-    try {
-      const response = await axios.post('https://www.strava.com/oauth/token', {
-        client_id: process.env.CLIENT_ID,
-        client_secret: process.env.CLIENT_SECRET,
-        refresh_token: process.env.REFRESH_TOKEN,
-        grant_type: 'refresh_token'
-      });
-      
-      const { access_token, refresh_token, expires_at } = response.data;
-      process.env.ACCESS_TOKEN = access_token;
-      process.env.REFRESH_TOKEN = refresh_token;
-      process.env.EXPIRES_AT = expires_at;
-      
-      console.log('Access token refreshed successfully');
-    } catch (error) {
-      console.error('Error refreshing token:', error.response?.data || error.message);
-      throw new Error('Token refresh failed. Please re-authenticate at /auth/strava');
-    }
-  }
-}
-
-// Route to manually trigger the streak update
-app.get('/update-streak', async (req, res) => {
-  try {
-    await refreshAccessTokenIfNeeded();
-    const result = await updateRunStreak();
-    res.send(`
-      <h1>Streak Update Result</h1>
-      <pre>${JSON.stringify(result, null, 2)}</pre>
-      <a href="/">Go back</a>
-    `);
-  } catch (error) {
-    console.error('Error updating streak:', error);
     res.status(500).send(`
-      <h1>Error</h1>
-      <p>${error.message}</p>
-      <p>You may need to <a href="/auth/strava">re-authenticate</a>.</p>
-      <a href="/">Go back</a>
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d32f2f;">Authentication Failed</h2>
+        <p>There was an error connecting to Strava. Please try again.</p>
+        <a href="/" style="color: #FC4C02;">Return to home page</a>
+      </div>
     `);
   }
 });
-
-// Function to update the run streak
-async function updateRunStreak() {
-  // Get recent activities
-  const activities = await getRecentActivities();
-  
-  // Filter to only runs over 4500 meters
-  const runs = activities.filter(activity => 
-    activity.type === 'Run' && activity.distance >= 4500
-  );
-  
-  // Sort by date (newest first)
-  runs.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
-  
-  // Get the last 3 runs
-  const lastThreeRuns = runs.slice(0, 3);
-  
-  if (lastThreeRuns.length < 3) {
-    return { message: "Not enough runs found for streak calculation" };
-  }
-  
-  // Check if runs are on consecutive days
-  const dates = lastThreeRuns.map(run => new Date(run.start_date).toDateString());
-  const consecutive = areDatesConsecutive(dates);
-  
-  if (!consecutive) {
-    return { message: "Runs are not on consecutive days", dates };
-  }
-  
-  // Check for existing streak text in the most recent run
-  const mostRecentRun = lastThreeRuns[0];
-  const streakMatch = mostRecentRun.description && 
-    mostRecentRun.description.match(/Daily Run Streak: (\d+)/);
-  
-  let newStreakCount = 1;
-  if (streakMatch) {
-    // If we found a streak count, increment it
-    newStreakCount = parseInt(streakMatch[1]) + 1;
-  } else {
-    // If no streak found, check previous runs to establish the streak
-    for (let i = 1; i < lastThreeRuns.length; i++) {
-      const prevStreakMatch = lastThreeRuns[i].description && 
-        lastThreeRuns[i].description.match(/Daily Run Streak: (\d+)/);
-      
-      if (prevStreakMatch) {
-        // Found a streak in a previous run, calculate current streak
-        newStreakCount = parseInt(prevStreakMatch[1]) + i + 1;
-        break;
-      }
-    }
-  }
-  
-  // Update the activity description
-  const newDescription = mostRecentRun.description 
-    ? mostRecentRun.description.replace(/Daily Run Streak: \d+/, `Daily Run Streak: ${newStreakCount}`)
-    : `Daily Run Streak: ${newStreakCount}`;
-  
-  // Only update if the description has changed
-  if (newDescription !== mostRecentRun.description) {
-    await updateActivityDescription(mostRecentRun.id, newDescription);
-    return { 
-      message: "Streak updated successfully", 
-      streak: newStreakCount,
-      activityId: mostRecentRun.id,
-      activityName: mostRecentRun.name,
-      newDescription: newDescription
-    };
-  } else {
-    return { 
-      message: "No update needed - streak already correct", 
-      streak: newStreakCount 
-    };
-  }
-}
-
-// Helper function to check if dates are consecutive
-function areDatesConsecutive(dateStrings) {
-  const dates = dateStrings.map(d => new Date(d));
-  
-  for (let i = 0; i < dates.length - 1; i++) {
-    const diffTime = Math.abs(dates[i] - dates[i + 1]);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays !== 1) {
-      return false;
-    }
-  }
-  
-  return true;
-}
-
-// Get recent activities from Strava
-async function getRecentActivities() {
-  const response = await axios.get(
-    'https://www.strava.com/api/v3/athlete/activities?per_page=30',
-    {
-      headers: {
-        'Authorization': `Bearer ${process.env.ACCESS_TOKEN}`
-      }
-    }
-  );
-  
-  return response.data;
-}
-
-// Update an activity's description
-async function updateActivityDescription(activityId, description) {
-  await axios.put(
-    `https://www.strava.com/api/v3/activities/${activityId}`,
-    {
-      description: description
-    },
-    {
-      headers: {
-        'Authorization': `Bearer ${process.env.ACCESS_TOKEN}`
-      }
-    }
-  );
-}
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
