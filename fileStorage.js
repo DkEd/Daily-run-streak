@@ -1,98 +1,78 @@
-// fileStorage.js
 const fs = require('fs').promises;
 const path = require('path');
 
 class FileStorage {
   constructor() {
-    this.streakFile = path.join(__dirname, 'streakData.json');
-    this.streakData = null;
+    this.dataDir = path.join(__dirname, 'data');
+    this.streakFile = path.join(this.dataDir, 'streakData.json');
+    this.statsFile = path.join(this.dataDir, 'statsData.json');
   }
 
-  // Load streak data from file
-  async loadStreakData() {
+  // Ensure data directory exists
+  async ensureDataDir() {
     try {
-      const data = await fs.readFile(this.streakFile, 'utf8');
-      this.streakData = JSON.parse(data);
-      return this.streakData;
+      await fs.access(this.dataDir);
+    } catch {
+      await fs.mkdir(this.dataDir, { recursive: true });
+    }
+  }
+
+  // Load data from file with defaults
+  async loadData(filePath, defaults) {
+    try {
+      await this.ensureDataDir();
+      const data = await fs.readFile(filePath, 'utf8');
+      return { ...defaults, ...JSON.parse(data) };
     } catch (error) {
-      // If file doesn't exist, initialize with default data
-      console.log('No streak data found, initializing new file');
-      this.streakData = {
-        currentStreak: 237,
-        lastRunDate: null,
-        lastRunId: null
-      };
-      await this.saveStreakData();
-      return this.streakData;
+      console.log(`Creating new data file: ${filePath}`);
+      await this.saveData(filePath, defaults);
+      return defaults;
     }
   }
 
-  // Save streak data to file
-  async saveStreakData() {
-    await fs.writeFile(this.streakFile, JSON.stringify(this.streakData, null, 2));
-    console.log('Streak data saved successfully');
+  // Save data to file
+  async saveData(filePath, data) {
+    await this.ensureDataDir();
+    await fs.writeFile(filePath, JSON.stringify(data, null, 2));
   }
 
-  // Update streak data
-  async updateStreak(runDate, runId, distance) {
-    // Load data if not already loaded
-    if (!this.streakData) {
-      await this.loadStreakData();
-    }
-
-    const today = new Date().toDateString();
-    const runDay = new Date(runDate).toDateString();
-    
-    // Check if this is a new day and run meets distance requirement
-    if (runDay === today && distance >= 4500) {
-      // Check if we already processed a run for today
-      if (this.streakData.lastRunDate === runDay) {
-        return {
-          updated: false,
-          streak: this.streakData.currentStreak,
-          message: "Already processed a run for today"
-        };
-      }
-
-      // Check if this continues a streak (yesterday or same day)
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      if (this.streakData.lastRunDate === yesterday.toDateString() || 
-          this.streakData.lastRunDate === null) {
-        // Continue the streak
-        this.streakData.currentStreak += 1;
-      } else {
-        // Broken streak, start over
-        this.streakData.currentStreak = 1;
-      }
-
-      // Update last run info
-      this.streakData.lastRunDate = runDay;
-      this.streakData.lastRunId = runId;
-
-      await this.saveStreakData();
-      
-      return {
-        updated: true,
-        streak: this.streakData.currentStreak,
-        message: "Streak updated successfully"
-      };
-    }
-    
-    return {
-      updated: false,
-      streak: this.streakData.currentStreak,
-      message: "Run doesn't meet criteria for streak update"
+  // Streak data methods
+  async loadStreakData() {
+    const defaults = {
+      currentStreak: 0,
+      longestStreak: 0,
+      totalRuns: 0,
+      totalDistance: 0,
+      totalTime: 0,
+      totalElevation: 0,
+      streakStartDate: null,
+      lastRunDate: null
     };
+    return await this.loadData(this.streakFile, defaults);
   }
 
-  // Get current streak
-  async getCurrentStreak() {
-    if (!this.streakData) {
-      await this.loadStreakData();
-    }
-    return this.streakData.currentStreak;
+  async saveStreakData(data) {
+    await this.saveData(this.streakFile, data);
+  }
+
+  // Stats data methods
+  async loadStatsData() {
+    const defaults = {
+      monthlyDistance: 0,
+      yearlyDistance: 0,
+      monthlyTime: 0,
+      yearlyTime: 0,
+      monthlyElevation: 0,
+      yearlyElevation: 0,
+      monthlyGoal: 200,
+      yearlyGoal: 2000,
+      lastUpdated: null
+    };
+    return await this.loadData(this.statsFile, defaults);
+  }
+
+  async saveStatsData(data) {
+    await this.saveData(this.statsFile, data);
   }
 }
 
