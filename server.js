@@ -46,9 +46,9 @@ async function loadStreakData() {
     totalDistance: 2346600,
     totalTime: 699900,
     totalElevation: 25714,
-    streakStartDate: "2024-31-12",
-    lastRunDate: null,
-    manuallyUpdated: true,
+    streakStartDate: "2024-01-01",
+    lastRunDate: new Date(Date.now() - 86400000).toDateString(),
+    manuallyUpdated: false,
     lastManualUpdate: null
   };
   return await loadData(streakFile, defaults);
@@ -62,8 +62,8 @@ async function loadStatsData() {
   const defaults = {
     monthlyDistance: 229.5,
     yearlyDistance: 2336.0,
-    monthlyTime: 27519,
-    yearlyTime: 649710,
+    monthlyTime: 0,
+    yearlyTime: 0,
     monthlyElevation: 2793,
     yearlyElevation: 25595,
     monthlyGoal: 250,
@@ -156,12 +156,11 @@ function formatTime(seconds) {
   return `${hours}h ${minutes}m`;
 }
 
-function generateProgressBars(distance, goal, segments = 10) {
+function generateProgressBars(distance, goal, type = 'monthly', segments = 10) {
   const completed = Math.min(Math.floor((distance / goal) * segments), segments);
   
-  if (distance >= goal) {
-    return '🔵'.repeat(segments);
-  } else if (distance >= goal * 0.7) {
+  // Use blue for monthly, green for yearly
+  if (type === 'monthly') {
     return '🔵'.repeat(completed) + '⚪️'.repeat(segments - completed);
   } else {
     return '🟢'.repeat(completed) + '⚪️'.repeat(segments - completed);
@@ -196,9 +195,9 @@ async function generateDescription(streakData, activityId) {
     const streakSection = `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
 📊 ${(streakData.totalDistance / 1000).toFixed(1)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
 Monthly: ${stats.monthlyDistance.toFixed(1)}/${stats.monthlyGoal} km  | ⛰️ ${Math.round(stats.monthlyElevation)} m
-${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal)}
+${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal, 'monthly')}
 Yearly: ${stats.yearlyDistance.toFixed(1)}/${stats.yearlyGoal} km  | ⛰️ ${Math.round(stats.yearlyElevation)} m
-${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal)}
+${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal, 'yearly')}
 📷 @DailyRunGuy`;
 
     // Combine streak info with existing description (if any)
@@ -214,9 +213,9 @@ ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal)}
     return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
 📊 ${(streakData.totalDistance / 1000).toFixed(1)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
 Monthly: ${stats.monthlyDistance.toFixed(1)}/${stats.monthlyGoal} km  | ⛰️ ${Math.round(stats.monthlyElevation)} m
-${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal)}
+${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal, 'monthly')}
 Yearly: ${stats.yearlyDistance.toFixed(1)}/${stats.yearlyGoal} km  | ⛰️ ${Math.round(stats.yearlyElevation)} m
-${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal)}
+${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal, 'yearly')}
 📷 @DailyRunGuy`;
   }
 }
@@ -246,36 +245,33 @@ async function updateRunStreak() {
       return { message: "Already processed today's run", ...streakData };
     }
 
-// Keep the manually set streak count, only update if not manually set
-if (!streakData.manuallyUpdated) {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  
-  if (streakData.lastRunDate === yesterday.toDateString()) {
-    streakData.currentStreak += 1;
-  } else {
-    streakData.currentStreak = 1;
-    streakData.streakStartDate = todayDate;
-  }
-}
+    // Only update totals if not manually updated, otherwise use exact manual values
+    if (!streakData.manuallyUpdated) {
+      streakData.totalRuns += 1;
+      streakData.totalDistance += todaysRun.distance;
+      streakData.totalTime += todaysRun.moving_time || 0;
+      streakData.totalElevation += todaysRun.total_elevation_gain || 0;
+    }
 
-    // Update totals (always add today's run stats)
-    streakData.totalRuns += 1;
-    streakData.totalDistance += todaysRun.distance;
-    streakData.totalTime += todaysRun.moving_time || 0;
-    streakData.totalElevation += todaysRun.total_elevation_gain || 0;
     // Set lastRunDate to yesterday to continue the streak properly
-const yesterday = new Date();
-yesterday.setDate(yesterday.getDate() - 1);
-streakData.lastRunDate = yesterday.toDateString();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    streakData.lastRunDate = yesterday.toDateString();
 
-    // Update longest streak
+    // Keep the manually set streak count, only update if not manually set
+    if (!streakData.manuallyUpdated) {
+      if (streakData.lastRunDate === yesterday.toDateString()) {
+        streakData.currentStreak += 1;
+      } else {
+        streakData.currentStreak = 1;
+        streakData.streakStartDate = todayDate;
+      }
+    }
+
+    // Update longest streak if needed
     if (streakData.currentStreak > streakData.longestStreak) {
       streakData.longestStreak = streakData.currentStreak;
     }
-
-    // Reset manual update flag
-    streakData.manuallyUpdated = false;
 
     // Save updated data
     await saveStreakData(streakData);
@@ -310,11 +306,20 @@ async function manuallyUpdateStreak(newStreakCount, newLongestStreak, newTotalRu
   streakData.totalElevation = parseFloat(newTotalElevation);
   streakData.streakStartDate = newStreakStartDate;
   streakData.manuallyUpdated = true;
+  
+  // Set lastRunDate to yesterday to continue the streak properly
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  streakData.lastRunDate = yesterday.toDateString();
+  
   streakData.lastManualUpdate = new Date().toDateString();
   
   await saveStreakData(streakData);
   
-  return { success: true, message: "Streak updated manually" };
+  return { 
+    success: true, 
+    message: "Streak updated manually. Your exact values will be preserved." 
+  };
 }
 
 async function manuallyUpdateStats(monthlyDistance, yearlyDistance, monthlyTime, yearlyTime, monthlyElevation, yearlyElevation, monthlyGoal, yearlyGoal) {
