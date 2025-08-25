@@ -264,7 +264,10 @@ if (!streakData.manuallyUpdated) {
     streakData.totalDistance += todaysRun.distance;
     streakData.totalTime += todaysRun.moving_time || 0;
     streakData.totalElevation += todaysRun.total_elevation_gain || 0;
-    streakData.lastRunDate = todayDate;
+    // Set lastRunDate to yesterday to continue the streak properly
+const yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1);
+streakData.lastRunDate = yesterday.toDateString();
 
     // Update longest streak
     if (streakData.currentStreak > streakData.longestStreak) {
