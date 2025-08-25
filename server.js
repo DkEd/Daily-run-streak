@@ -161,7 +161,7 @@ async function updateRunStreak() {
     }
     
     // Update the activity description
-    const streakText = `🔥 Streak: day ${newStreakCount} 🏃\n`;
+    const streakText = `🔥 Daily Run Streak: day ${newStreakCount} 🏃\n`;
     const newDescription = runToday.description 
       ? streakText + runToday.description
       : streakText;
@@ -265,7 +265,7 @@ function formatDate(date) {
 async function getRecentActivities() {
   // Calculate date 7 days ago
   const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 999);
   const after = Math.floor(sevenDaysAgo.getTime() / 1000);
   
   const response = await axios.get(
