@@ -45,12 +45,14 @@ async function updateRunStreak() {
     const activities = await stravaApi.getRecentActivities(2);
     const today = formatDate(new Date());
     
+    // Find today's qualifying run (>4500m)
     const todaysRun = activities.find(activity => 
       activity.type === 'Run' && 
       activity.distance >= 4500 &&
       formatDate(new Date(activity.start_date)) === today
     );
 
+    // Update stats with ALL runs from today (for monthly/yearly stats only)
     const todaysRuns = activities.filter(activity => 
       activity.type === 'Run' && 
       formatDate(new Date(activity.start_date)) === today
@@ -64,21 +66,26 @@ async function updateRunStreak() {
       return { message: "No qualifying run today (>4500m)", ...streakData };
     }
     
+    // Check if we already processed today
     if (streakData.lastRunDate === todayDate) {
       return { message: "Already processed today's run", ...streakData };
     }
 
+    // DON'T update totals if manually updated - use exact manual values
     if (!streakData.manuallyUpdated) {
+      // Only update if NOT manually updated
       streakData.totalRuns += 1;
       streakData.totalDistance += todaysRun.distance;
       streakData.totalTime += todaysRun.moving_time || 0;
       streakData.totalElevation += todaysRun.total_elevation_gain || 0;
     }
 
+    // Set lastRunDate to yesterday
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     streakData.lastRunDate = yesterday.toDateString();
 
+    // Keep the manually set streak count, only update if not manually set
     if (!streakData.manuallyUpdated) {
       if (streakData.lastRunDate === yesterday.toDateString()) {
         streakData.currentStreak += 1;
@@ -88,13 +95,18 @@ async function updateRunStreak() {
       }
     }
 
+    // Update longest streak if needed
     if (streakData.currentStreak > streakData.longestStreak) {
       streakData.longestStreak = streakData.currentStreak;
     }
 
+    // Save updated data
     await saveStreakData(streakData);
 
+    // Generate description (preserves existing content)
     const description = await generateDescription(streakData, todaysRun.id);
+
+    // Update activity description
     await stravaApi.updateActivityDescription(todaysRun.id, description);
 
     return { 
