@@ -48,7 +48,7 @@ async function loadStreakData() {
     totalElevation: 25714,
     streakStartDate: "2024-31-12",
     lastRunDate: new Date(Date.now() - 86400000).toDateString(),
-    manuallyUpdated: false,
+    manuallyUpdated: true,
     lastManualUpdate: null
   };
   return await loadData(streakFile, defaults);
