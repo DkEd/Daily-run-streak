@@ -6,43 +6,59 @@ class StravaApi {
     this.auth = stravaAuth;
   }
 
-  async getRecentActivities(days = 7) {
-    const accessToken = await this.auth.getAccessToken();
-    const after = Math.floor(Date.now() / 1000) - (days * 24 * 60 * 60);
-    
-    const response = await axios.get(
-      `https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=50`,
-      {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
+  async makeAuthenticatedRequest(requestFn) {
+    try {
+      const accessToken = await this.auth.getAccessToken();
+      return await requestFn(accessToken);
+    } catch (error) {
+      if (error.response?.status === 401) {
+        console.log('Token expired, refreshing...');
+        // Force token refresh and retry
+        const newAccessToken = await this.auth.refreshTokenIfNeeded();
+        return await requestFn(newAccessToken);
       }
-    );
-    
-    return response.data;
+      throw error;
+    }
+  }
+
+  async getRecentActivities(days = 7) {
+    return this.makeAuthenticatedRequest(async (accessToken) => {
+      const after = Math.floor(Date.now() / 1000) - (days * 24 * 60 * 60);
+      
+      const response = await axios.get(
+        `https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=50`,
+        {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        }
+      );
+      
+      return response.data;
+    });
   }
 
   async getActivity(activityId) {
-    const accessToken = await this.auth.getAccessToken();
-    
-    const response = await axios.get(
-      `https://www.strava.com/api/v3/activities/${activityId}`,
-      {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      }
-    );
-    
-    return response.data;
+    return this.makeAuthenticatedRequest(async (accessToken) => {
+      const response = await axios.get(
+        `https://www.strava.com/api/v3/activities/${activityId}`,
+        {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        }
+      );
+      
+      return response.data;
+    });
   }
 
   async updateActivityDescription(activityId, description) {
-    const accessToken = await this.auth.getAccessToken();
-    
-    await axios.put(
-      `https://www.strava.com/api/v3/activities/${activityId}`,
-      { description },
-      {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      }
-    );
+    return this.makeAuthenticatedRequest(async (accessToken) => {
+      await axios.put(
+        `https://www.strava.com/api/v3/activities/${activityId}`,
+        { description },
+        {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        }
+      );
+    });
   }
 
   async setupWebhook(callbackUrl, verifyToken) {
