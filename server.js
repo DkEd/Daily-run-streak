@@ -104,7 +104,7 @@ app.get('/update-streak', async (req, res) => {
 
 // Function to update the run streak
 async function updateRunStreak() {
-  // Get recent activities
+  // Get recent activities (last 7 days)
   const activities = await getRecentActivities();
   
   // Filter to only runs over 4500 meters
@@ -115,87 +115,161 @@ async function updateRunStreak() {
   // Sort by date (newest first)
   runs.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
   
-  // Get the last 3 runs
-  const lastThreeRuns = runs.slice(0, 3);
+  // Get today's and yesterday's dates
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
   
-  if (lastThreeRuns.length < 3) {
-    return { message: "Not enough runs found for streak calculation" };
-  }
+  // Format dates to match Strava format (YYYY-MM-DD)
+  const todayFormatted = formatDate(today);
+  const yesterdayFormatted = formatDate(yesterday);
   
-  // Check if runs are on consecutive days
-  const dates = lastThreeRuns.map(run => new Date(run.start_date).toDateString());
-  const consecutive = areDatesConsecutive(dates);
+  // Check if there was a run today
+  const runToday = runs.find(run => run.start_date_local.startsWith(todayFormatted));
   
-  if (!consecutive) {
-    return { message: "Runs are not on consecutive days", dates };
-  }
-  
-  // Check for existing streak text in the most recent run
-  const mostRecentRun = lastThreeRuns[0];
-  const streakMatch = mostRecentRun.description && 
-    mostRecentRun.description.match(/Daily Run Streak: (\d+)/);
-  
-  let newStreakCount = 1;
-  if (streakMatch) {
-    // If we found a streak count, increment it
-    newStreakCount = parseInt(streakMatch[1]) + 1;
-  } else {
-    // If no streak found, check previous runs to establish the streak
-    for (let i = 1; i < lastThreeRuns.length; i++) {
-      const prevStreakMatch = lastThreeRuns[i].description && 
-        lastThreeRuns[i].description.match(/Daily Run Streak: (\d+)/);
-      
-      if (prevStreakMatch) {
-        // Found a streak in a previous run, calculate current streak
-        newStreakCount = parseInt(prevStreakMatch[1]) + i + 1;
-        break;
-      }
-    }
-  }
-  
-  // Update the activity description
-  const newDescription = mostRecentRun.description 
-    ? mostRecentRun.description.replace(/Daily Run Streak: \d+/, `Daily Run Streak: ${newStreakCount}`)
-    : `Daily Run Streak: ${newStreakCount}`;
-  
-  // Only update if the description has changed
-  if (newDescription !== mostRecentRun.description) {
-    await updateActivityDescription(mostRecentRun.id, newDescription);
-    return { 
-      message: "Streak updated successfully", 
-      streak: newStreakCount,
-      activityId: mostRecentRun.id,
-      activityName: mostRecentRun.name,
-      newDescription: newDescription
-    };
-  } else {
-    return { 
-      message: "No update needed - streak already correct", 
-      streak: newStreakCount 
-    };
-  }
-}
-
-// Helper function to check if dates are consecutive
-function areDatesConsecutive(dateStrings) {
-  const dates = dateStrings.map(d => new Date(d));
-  
-  for (let i = 0; i < dates.length - 1; i++) {
-    const diffTime = Math.abs(dates[i] - dates[i + 1]);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  if (runToday) {
+    // There was a run today - check if it already has a streak marker
+    const streakMatch = runToday.description && runToday.description.match(/🔥 Streak: day (\d+) 🏃/);
     
-    if (diffDays !== 1) {
-      return false;
+    if (streakMatch) {
+      return { 
+        message: "Today's run already has a streak marker", 
+        streak: parseInt(streakMatch[1]),
+        activityId: runToday.id,
+        activityName: runToday.name
+      };
+    }
+    
+    // Check if there was a run yesterday
+    const runYesterday = runs.find(run => run.start_date_local.startsWith(yesterdayFormatted));
+    
+    let newStreakCount = 1;
+    
+    if (runYesterday) {
+      // There was a run yesterday - check its streak count
+      const yesterdayStreakMatch = runYesterday.description && runYesterday.description.match(/🔥 Streak: day (\d+) 🏃/);
+      
+      if (yesterdayStreakMatch) {
+        newStreakCount = parseInt(yesterdayStreakMatch[1]) + 1;
+      } else {
+        // No streak found yesterday, check previous days to find the current streak
+        newStreakCount = await findCurrentStreak(runs, yesterday);
+      }
+    } else {
+      // No run yesterday, check if we need to continue a streak from before yesterday
+      newStreakCount = await findCurrentStreak(runs, yesterday);
+    }
+    
+    // Update the activity description
+    const streakText = `🔥 Streak: day ${newStreakCount} 🏃\n`;
+    const newDescription = runToday.description 
+      ? streakText + runToday.description
+      : streakText;
+    
+    // Only update if the description has changed
+    if (newDescription !== runToday.description) {
+      await updateActivityDescription(runToday.id, newDescription);
+      return { 
+        message: "Streak updated successfully", 
+        streak: newStreakCount,
+        activityId: runToday.id,
+        activityName: runToday.name,
+        newDescription: newDescription
+      };
+    }
+  } else {
+    // No run today - check if there was a run yesterday
+    const runYesterday = runs.find(run => run.start_date_local.startsWith(yesterdayFormatted));
+    
+    if (runYesterday) {
+      // There was a run yesterday - get its streak count
+      const yesterdayStreakMatch = runYesterday.description && runYesterday.description.match(/🔥 Streak: day (\d+) 🏃/);
+      
+      if (yesterdayStreakMatch) {
+        return { 
+          message: "No run today, but yesterday's streak was", 
+          streak: parseInt(yesterdayStreakMatch[1])
+        };
+      } else {
+        // No streak found yesterday, check previous days
+        const currentStreak = await findCurrentStreak(runs, yesterday);
+        return { 
+          message: "No run today, but current streak is", 
+          streak: currentStreak
+        };
+      }
+    } else {
+      // No run yesterday either
+      return { 
+        message: "No runs found for today or yesterday", 
+        streak: 0
+      };
     }
   }
-  
-  return true;
 }
 
-// Get recent activities from Strava
+// Helper function to find the current streak by checking previous days
+async function findCurrentStreak(runs, fromDate) {
+  let currentDate = new Date(fromDate);
+  let streakCount = 0;
+  let foundStart = false;
+  
+  // Check up to 30 days back to find the current streak
+  for (let i = 0; i < 30; i++) {
+    const dateFormatted = formatDate(currentDate);
+    const runOnDate = runs.find(run => run.start_date_local.startsWith(dateFormatted));
+    
+    if (runOnDate) {
+      // Found a run on this date
+      if (!foundStart) {
+        // This is the most recent run in the streak
+        const streakMatch = runOnDate.description && runOnDate.description.match(/🔥 Streak: day (\d+) 🏃/);
+        
+        if (streakMatch) {
+          // Found a streak marker, use this as the base
+          streakCount = parseInt(streakMatch[1]);
+          foundStart = true;
+        } else if (i === 0) {
+          // No streak marker on the most recent run, start at 1
+          streakCount = 1;
+          foundStart = true;
+        } else {
+          // No streak marker, but we're counting backwards
+          streakCount++;
+        }
+      } else {
+        // We're counting backwards through the streak
+        streakCount++;
+      }
+    } else if (foundStart) {
+      // We found the start of the streak and now we've hit a day with no run
+      break;
+    }
+    
+    // Move to the previous day
+    currentDate.setDate(currentDate.getDate() - 1);
+  }
+  
+  return streakCount;
+}
+
+// Helper function to format date as YYYY-MM-DD
+function formatDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Get recent activities from Strava (last 7 days)
 async function getRecentActivities() {
+  // Calculate date 7 days ago
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const after = Math.floor(sevenDaysAgo.getTime() / 1000);
+  
   const response = await axios.get(
-    'https://www.strava.com/api/v3/athlete/activities?per_page=30',
+    `https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=50`,
     {
       headers: {
         'Authorization': `Bearer ${process.env.ACCESS_TOKEN}`
