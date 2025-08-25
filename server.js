@@ -265,7 +265,7 @@ function formatDate(date) {
 async function getRecentActivities() {
   // Calculate date 7 days ago
   const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 999);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const after = Math.floor(sevenDaysAgo.getTime() / 1000);
   
   const response = await axios.get(
