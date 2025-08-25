@@ -12,7 +12,13 @@ router.get('/update-streak', async (req, res) => {
     const result = await updateRunStreak();
     res.send(`<h1>Streak Update</h1><pre>${JSON.stringify(result, null, 2)}</pre><a href="/">Home</a>`);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+    console.error('Error updating streak:', error.message);
+    
+    if (error.message.includes('re-authenticate')) {
+      res.status(401).send(`<h1>Authentication Required</h1><p>${error.message}</p><p>Please <a href="/auth/strava">re-authenticate with Strava</a>.</p><a href="/">Home</a>`);
+    } else {
+      res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+    }
   }
 });
 
@@ -21,7 +27,7 @@ router.get('/streak-status', async (req, res) => {
     const streak = await getCurrentStreak();
     res.send(`<h1>Current Streak: ${streak} days</h1><a href="/">Home</a>`);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
   }
 });
 
@@ -30,7 +36,7 @@ router.get('/streak-details', async (req, res) => {
     const data = await getAllStreakData();
     res.send(`<h1>Streak Details</h1><pre>${JSON.stringify(data, null, 2)}</pre><a href="/">Home</a>`);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
   }
 });
 
