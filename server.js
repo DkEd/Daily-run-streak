@@ -46,8 +46,8 @@ async function loadStreakData() {
     totalDistance: 2346600,
     totalTime: 699900,
     totalElevation: 25714,
-    streakStartDate: "2024-12-31",
-    lastRunDate: new Date().toDateString(),
+    streakStartDate: "2024-31-12",
+    lastRunDate: null,
     manuallyUpdated: true,
     lastManualUpdate: null
   };
