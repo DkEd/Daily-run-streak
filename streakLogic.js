@@ -14,54 +14,17 @@ class StreakLogic {
     return `${year}-${month}-${day}`;
   }
 
-  // Helper function to find the current streak by checking previous days
-  async findCurrentStreak(runs, fromDate) {
-    let currentDate = new Date(fromDate);
-    let streakCount = 0;
-    let foundStart = false;
+  // Extract streak count from activity description
+  extractStreakCount(description) {
+    if (!description) return null;
     
-    // Check up to 30 days back to find the current streak
-    for (let i = 0; i < 30; i++) {
-      const dateFormatted = this.formatDate(currentDate);
-      const runOnDate = runs.find(run => run.start_date_local.startsWith(dateFormatted));
-      
-      if (runOnDate) {
-        // Found a run on this date
-        if (!foundStart) {
-          // This is the most recent run in the streak
-          const streakMatch = runOnDate.description && runOnDate.description.match(/Streak: day (\d+)/);
-          
-          if (streakMatch) {
-            // Found a streak marker, use this as the base
-            streakCount = parseInt(streakMatch[1]);
-            foundStart = true;
-          } else if (i === 0) {
-            // No streak marker on the most recent run, start at 1
-            streakCount = 1;
-            foundStart = true;
-          } else {
-            // No streak marker, but we're counting backwards
-            streakCount++;
-          }
-        } else {
-          // We're counting backwards through the streak
-          streakCount++;
-        }
-      } else if (foundStart) {
-        // We found the start of the streak and now we've hit a day with no run
-        break;
-      }
-      
-      // Move to the previous day
-      currentDate.setDate(currentDate.getDate() - 1);
-    }
-    
-    return streakCount;
+    const streakMatch = description.match(/🔥 Streak: day (\d+) 🏃/);
+    return streakMatch ? parseInt(streakMatch[1]) : null;
   }
 
   // Function to update the run streak
   async updateRunStreak() {
-    // Get recent activities
+    // Get recent activities (last 7 days)
     const activities = await this.stravaApi.getRecentActivities();
     
     // Filter to only runs over 4500 meters
@@ -83,12 +46,12 @@ class StreakLogic {
     
     if (runToday) {
       // There was a run today - check if it already has a streak marker
-      const streakMatch = runToday.description && runToday.description.match(/🔥Streak: day (\d+) 🏃/);
+      const todayStreakCount = this.extractStreakCount(runToday.description);
       
-      if (streakMatch) {
+      if (todayStreakCount !== null) {
         return { 
           message: "Today's run already has a streak marker", 
-          streak: parseInt(streakMatch[1]),
+          streak: todayStreakCount,
           activityId: runToday.id,
           activityName: runToday.name
         };
@@ -97,20 +60,20 @@ class StreakLogic {
       // Check if there was a run yesterday
       const runYesterday = runs.find(run => run.start_date_local.startsWith(yesterdayFormatted));
       
-      let newStreakCount = 1;
+      let newStreakCount = 1; // Default to 1 if no previous streak found
       
       if (runYesterday) {
-        // There was a run yesterday - check its streak count
-        const yesterdayStreakMatch = runYesterday.description && runYesterday.description.match(/🔥 Streak: day (\d+) 🏃/);
+        // There was a run yesterday - extract its streak count
+        const yesterdayStreakCount = this.extractStreakCount(runYesterday.description);
         
-        if (yesterdayStreakMatch) {
-          newStreakCount = parseInt(yesterdayStreakMatch[1]) + 1;
+        if (yesterdayStreakCount !== null) {
+          newStreakCount = yesterdayStreakCount + 1;
         } else {
-          // No streak found yesterday, check previous days to find the current streak
+          // No streak found in yesterday's run, look for the most recent streak
           newStreakCount = await this.findCurrentStreak(runs, yesterday);
         }
       } else {
-        // No run yesterday, check if we need to continue a streak from before yesterday
+        // No run yesterday, look for the most recent streak
         newStreakCount = await this.findCurrentStreak(runs, yesterday);
       }
       
@@ -137,12 +100,12 @@ class StreakLogic {
       
       if (runYesterday) {
         // There was a run yesterday - get its streak count
-        const yesterdayStreakMatch = runYesterday.description && runYesterday.description.match(/🔥 Streak: day (\d+) 🏃/);
+        const yesterdayStreakCount = this.extractStreakCount(runYesterday.description);
         
-        if (yesterdayStreakMatch) {
+        if (yesterdayStreakCount !== null) {
           return { 
             message: "No run today, but yesterday's streak was", 
-            streak: parseInt(yesterdayStreakMatch[1])
+            streak: yesterdayStreakCount
           };
         } else {
           // No streak found yesterday, check previous days
@@ -160,6 +123,41 @@ class StreakLogic {
         };
       }
     }
+  }
+
+  // Helper function to find the current streak by checking previous days
+  async findCurrentStreak(runs, fromDate) {
+    let currentDate = new Date(fromDate);
+    let streakCount = 0;
+    
+    // Check up to 30 days back to find the current streak
+    for (let i = 0; i < 30; i++) {
+      const dateFormatted = this.formatDate(currentDate);
+      const runOnDate = runs.find(run => run.start_date_local.startsWith(dateFormatted));
+      
+      if (runOnDate) {
+        // Found a run on this date - check if it has a streak marker
+        const streakMatch = this.extractStreakCount(runOnDate.description);
+        
+        if (streakMatch !== null) {
+          // Found a streak marker, this is our base count
+          streakCount = streakMatch;
+          break;
+        } else {
+          // No streak marker but there's a run, count it as part of the streak
+          streakCount++;
+        }
+      } else {
+        // No run on this date, streak is broken
+        streakCount = 0;
+        break;
+      }
+      
+      // Move to the previous day
+      currentDate.setDate(currentDate.getDate() - 1);
+    }
+    
+    return streakCount;
   }
 }
 
