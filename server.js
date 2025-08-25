@@ -40,14 +40,16 @@ async function saveData(filePath, data) {
 
 async function loadStreakData() {
   const defaults = {
-    currentStreak: 0,
-    longestStreak: 0,
-    totalRuns: 0,
-    totalDistance: 0,
-    totalTime: 0,
-    totalElevation: 0,
-    streakStartDate: null,
-    lastRunDate: null
+    currentStreak: 238,
+    longestStreak: 238,
+    totalRuns: 238,
+    totalDistance: 2346600,
+    totalTime: 699900,
+    totalElevation: 25714,
+    streakStartDate: "2024-01-01",
+    lastRunDate: new Date().toDateString(),
+    manuallyUpdated: false,
+    lastManualUpdate: null
   };
   return await loadData(streakFile, defaults);
 }
@@ -58,14 +60,14 @@ async function saveStreakData(data) {
 
 async function loadStatsData() {
   const defaults = {
-    monthlyDistance: 0,
-    yearlyDistance: 0,
+    monthlyDistance: 229.5,
+    yearlyDistance: 2336.0,
     monthlyTime: 0,
     yearlyTime: 0,
-    monthlyElevation: 0,
-    yearlyElevation: 0,
-    monthlyGoal: 200,
-    yearlyGoal: 2000,
+    monthlyElevation: 2793,
+    yearlyElevation: 25595,
+    monthlyGoal: 250,
+    yearlyGoal: 3250,
     lastUpdated: null
   };
   return await loadData(statsFile, defaults);
@@ -156,7 +158,14 @@ function formatTime(seconds) {
 
 function generateProgressBars(distance, goal, segments = 10) {
   const completed = Math.min(Math.floor((distance / goal) * segments), segments);
-  return '🟢'.repeat(completed) + '⚪️'.repeat(segments - completed);
+  
+  if (distance >= goal) {
+    return '🔵'.repeat(segments);
+  } else if (distance >= goal * 0.7) {
+    return '🔵'.repeat(completed) + '⚪️'.repeat(segments - completed);
+  } else {
+    return '🟢'.repeat(completed) + '⚪️'.repeat(segments - completed);
+  }
 }
 
 // Clean up existing description (remove empty lines, etc.)
@@ -166,10 +175,11 @@ function cleanExistingDescription(description) {
   return description
     .split('\n')
     .filter(line => line.trim() !== '') // Remove empty lines
-    .filter(line => !line.includes('🔥 Streak:') && 
-                   !line.includes('📅 Monthly:') && 
-                   !line.includes('📊 Yearly:') &&
-                   !line.includes('🏃🏻‍♂️Daily Run Streak:')) // Remove existing streak info
+    .filter(line => !line.includes('🏃🏻‍♂️Daily Run Streak:') && 
+                   !line.includes('📊') && 
+                   !line.includes('Monthly:') &&
+                   !line.includes('Yearly:') &&
+                   !line.includes('📷 @DailyRunGuy')) // Remove existing streak info
     .join('\n')
     .trim();
 }
@@ -184,15 +194,11 @@ async function generateDescription(streakData, activityId) {
     const stats = await loadStatsData();
     
     const streakSection = `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-
-🔥 Streak: ${streakData.currentStreak} days | 🏃🏻‍♂️${(streakData.totalDistance / 1000).toFixed(1)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
-
-📅 Monthly: ${stats.monthlyDistance.toFixed(1)}/${stats.monthlyGoal} km 
+📊 ${(streakData.totalDistance / 1000).toFixed(1)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
+Monthly: ${stats.monthlyDistance.toFixed(1)}/${stats.monthlyGoal} km  | ⛰️ ${Math.round(stats.monthlyElevation)} m
 ${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal)}
-
-📊 Yearly: ${stats.yearlyDistance.toFixed(1)}/${stats.yearlyGoal} km 
+Yearly: ${stats.yearlyDistance.toFixed(1)}/${stats.yearlyGoal} km  | ⛰️ ${Math.round(stats.yearlyElevation)} m
 ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal)}
-
 📷 @DailyRunGuy`;
 
     // Combine streak info with existing description (if any)
@@ -206,15 +212,11 @@ ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal)}
     // Fallback if we can't get the activity
     const stats = await loadStatsData();
     return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-
-🔥 Streak: ${streakData.currentStreak} days | 🏃🏻‍♂️${(streakData.totalDistance / 1000).toFixed(1)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
-
-📅 Monthly: ${stats.monthlyDistance.toFixed(1)}/${stats.monthlyGoal} km 
+📊 ${(streakData.totalDistance / 1000).toFixed(1)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
+Monthly: ${stats.monthlyDistance.toFixed(1)}/${stats.monthlyGoal} km  | ⛰️ ${Math.round(stats.monthlyElevation)} m
 ${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal)}
-
-📊 Yearly: ${stats.yearlyDistance.toFixed(1)}/${stats.yearlyGoal} km 
+Yearly: ${stats.yearlyDistance.toFixed(1)}/${stats.yearlyGoal} km  | ⛰️ ${Math.round(stats.yearlyElevation)} m
 ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal)}
-
 📷 @DailyRunGuy`;
   }
 }
@@ -222,6 +224,14 @@ ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal)}
 // Main streak function
 async function updateRunStreak() {
   try {
+    const streakData = await loadStreakData();
+    const todayDate = new Date().toDateString();
+    
+    // Don't update if manually updated today
+    if (streakData.manuallyUpdated && streakData.lastManualUpdate === todayDate) {
+      return { message: "Skipping update - manually updated today", ...streakData };
+    }
+    
     const activities = await getRecentActivities(2);
     const today = formatDate(new Date());
     
@@ -233,31 +243,28 @@ async function updateRunStreak() {
     );
 
     if (!todaysRun) {
-      const streakData = await loadStreakData();
       return { message: "No qualifying run today", ...streakData };
     }
-
-    // Load and update streak data
-    const streakData = await loadStreakData();
-    const todayDate = new Date().toDateString();
     
     // Check if we already processed today
     if (streakData.lastRunDate === todayDate) {
       return { message: "Already processed today's run", ...streakData };
     }
 
-    // Update streak
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (streakData.lastRunDate === yesterday.toDateString()) {
-      streakData.currentStreak += 1;
-    } else {
-      streakData.currentStreak = 1;
-      streakData.streakStartDate = todayDate;
+    // Update streak only if not manually updated
+    if (!streakData.manuallyUpdated) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      if (streakData.lastRunDate === yesterday.toDateString()) {
+        streakData.currentStreak += 1;
+      } else {
+        streakData.currentStreak = 1;
+        streakData.streakStartDate = todayDate;
+      }
     }
 
-    // Update totals
+    // Update totals (always add today's run stats)
     streakData.totalRuns += 1;
     streakData.totalDistance += todaysRun.distance;
     streakData.totalTime += todaysRun.moving_time || 0;
@@ -268,6 +275,9 @@ async function updateRunStreak() {
     if (streakData.currentStreak > streakData.longestStreak) {
       streakData.longestStreak = streakData.currentStreak;
     }
+
+    // Reset manual update flag
+    streakData.manuallyUpdated = false;
 
     // Save updated data
     await saveStreakData(streakData);
@@ -301,6 +311,8 @@ async function manuallyUpdateStreak(newStreakCount, newLongestStreak, newTotalRu
   streakData.totalTime = parseFloat(newTotalTime);
   streakData.totalElevation = parseFloat(newTotalElevation);
   streakData.streakStartDate = newStreakStartDate;
+  streakData.manuallyUpdated = true;
+  streakData.lastManualUpdate = new Date().toDateString();
   
   await saveStreakData(streakData);
   
@@ -409,25 +421,25 @@ app.get('/manual-streak-update', (req, res) => {
     <h1>Manual Streak Update</h1>
     <form action="/manual-streak-update" method="POST">
       <label for="currentStreak">Current Streak:</label>
-      <input type="number" id="currentStreak" name="currentStreak" required>
+      <input type="number" id="currentStreak" name="currentStreak" value="238" required>
       <br>
       <label for="longestStreak">Longest Streak:</label>
-      <input type="number" id="longestStreak" name="longestStreak" required>
+      <input type="number" id="longestStreak" name="longestStreak" value="238" required>
       <br>
       <label for="totalRuns">Total Runs:</label>
-      <input type="number" id="totalRuns" name="totalRuns" required>
+      <input type="number" id="totalRuns" name="totalRuns" value="238" required>
       <br>
       <label for="totalDistance">Total Distance (meters):</label>
-      <input type="number" id="totalDistance" name="totalDistance" required>
+      <input type="number" id="totalDistance" name="totalDistance" value="2346600" required>
       <br>
       <label for="totalTime">Total Time (seconds):</label>
-      <input type="number" id="totalTime" name="totalTime" required>
+      <input type="number" id="totalTime" name="totalTime" value="699900" required>
       <br>
       <label for="totalElevation">Total Elevation (meters):</label>
-      <input type="number" id="totalElevation" name="totalElevation" required>
+      <input type="number" id="totalElevation" name="totalElevation" value="25714" required>
       <br>
       <label for="streakStartDate">Streak Start Date (YYYY-MM-DD):</label>
-      <input type="date" id="streakStartDate" name="streakStartDate" required>
+      <input type="date" id="streakStartDate" name="streakStartDate" value="2024-01-01" required>
       <br>
       <button type="submit">Update Streak</button>
     </form>
@@ -454,29 +466,29 @@ app.get('/manual-stats-update', (req, res) => {
     <form action="/manual-stats-update" method="POST">
       <h3>Monthly Stats</h3>
       <label for="monthlyDistance">Monthly Distance (km):</label>
-      <input type="number" step="0.1" id="monthlyDistance" name="monthlyDistance" required>
+      <input type="number" step="0.1" id="monthlyDistance" name="monthlyDistance" value="229.5" required>
       <br>
       <label for="monthlyTime">Monthly Time (seconds):</label>
-      <input type="number" id="monthlyTime" name="monthlyTime" required>
+      <input type="number" id="monthlyTime" name="monthlyTime" value="0" required>
       <br>
       <label for="monthlyElevation">Monthly Elevation (meters):</label>
-      <input type="number" id="monthlyElevation" name="monthlyElevation" required>
+      <input type="number" id="monthlyElevation" name="monthlyElevation" value="2793" required>
       <br>
       <label for="monthlyGoal">Monthly Goal (km):</label>
-      <input type="number" step="0.1" id="monthlyGoal" name="monthlyGoal" required>
+      <input type="number" step="0.1" id="monthlyGoal" name="monthlyGoal" value="250" required>
       
       <h3>Yearly Stats</h3>
       <label for="yearlyDistance">Yearly Distance (km):</label>
-      <input type="number" step="0.1" id="yearlyDistance" name="yearlyDistance" required>
+      <input type="number" step="0.1" id="yearlyDistance" name="yearlyDistance" value="2336.0" required>
       <br>
       <label for="yearlyTime">Yearly Time (seconds):</label>
-      <input type="number" id="yearlyTime" name="yearlyTime" required>
+      <input type="number" id="yearlyTime" name="yearlyTime" value="0" required>
       <br>
       <label for="yearlyElevation">Yearly Elevation (meters):</label>
-      <input type="number" id="yearlyElevation" name="yearlyElevation" required>
+      <input type="number" id="yearlyElevation" name="yearlyElevation" value="25595" required>
       <br>
       <label for="yearlyGoal">Yearly Goal (km):</label>
-      <input type="number" step="0.1" id="yearlyGoal" name="yearlyGoal" required>
+      <input type="number" step="0.1" id="yearlyGoal" name="yearlyGoal" value="3250" required>
       <br>
       <button type="submit">Update Stats</button>
     </form>
