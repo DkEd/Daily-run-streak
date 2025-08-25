@@ -263,9 +263,9 @@ ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal, 'yearly')}
     const stats = await loadStatsData();
     return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
 📊 ${(streakData.totalDistance / 1000).toFixed(1)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
-Monthly: ${stats.monthlyDistance.toFixed(1)}/${stats.monthlyGoal} km  | ⛰️ ${Math.round(stats.monthlyElevation)} m
+Monthly: ${stats.monthlyDistance.toFixed(1)}/${stats.monthlyGoal} km  | ⛰️ ${Math.round(streakData.totalElevation)} m
 ${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal, 'monthly')}
-Yearly: ${stats.yearlyDistance.toFixed(1)}/${stats.yearlyGoal} km  | ⛰️ ${Math.round(stats.yearlyElevation)} m
+Yearly: ${stats.yearlyDistance.toFixed(1)}/${stats.yearlyGoal} km  | ⛰️ ${Math.round(streakData.totalElevation)} m
 ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal, 'yearly')}
 📷 @DailyRunGuy`;
   }
