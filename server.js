@@ -46,9 +46,9 @@ async function loadStreakData() {
     totalDistance: 2346600,
     totalTime: 699900,
     totalElevation: 25714,
-    streakStartDate: "2024-01-01",
+    streakStartDate: "2024-12-31",
     lastRunDate: new Date().toDateString(),
-    manuallyUpdated: false,
+    manuallyUpdated: true,
     lastManualUpdate: null
   };
   return await loadData(streakFile, defaults);
@@ -62,8 +62,8 @@ async function loadStatsData() {
   const defaults = {
     monthlyDistance: 229.5,
     yearlyDistance: 2336.0,
-    monthlyTime: 0,
-    yearlyTime: 0,
+    monthlyTime: 27519,
+    yearlyTime: 649710,
     monthlyElevation: 2793,
     yearlyElevation: 25595,
     monthlyGoal: 250,
