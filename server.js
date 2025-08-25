@@ -26,7 +26,20 @@ async function loadData(filePath, defaults) {
   try {
     await ensureDataDir();
     const data = await fs.readFile(filePath, 'utf8');
-    return { ...defaults, ...JSON.parse(data) };
+    const fileData = JSON.parse(data);
+    
+    // Use file data if it exists and has a lastManualUpdate date
+    if (fileData.lastManualUpdate) {
+      const fileUpdateDate = new Date(fileData.lastManualUpdate);
+      const defaultUpdateDate = new Date(defaults.lastManualUpdate);
+      
+      // Use file data if it's newer than defaults
+      if (fileUpdateDate >= defaultUpdateDate) {
+        return fileData;
+      }
+    }
+    
+    return { ...defaults, ...fileData };
   } catch (error) {
     await saveData(filePath, defaults);
     return defaults;
@@ -42,19 +55,41 @@ async function loadStreakData() {
   const defaults = {
     currentStreak: 238,
     longestStreak: 238,
-    totalRuns: 250,
+    totalRuns: 238,
     totalDistance: 2346600,
     totalTime: 699900,
     totalElevation: 25714,
-    streakStartDate: "2024-31-12",
+    streakStartDate: "2024-12-31",
     lastRunDate: new Date(Date.now() - 86400000).toDateString(),
     manuallyUpdated: true,
-    lastManualUpdate: null
+    lastManualUpdate: new Date().toDateString()
   };
-  return await loadData(streakFile, defaults);
+
+  try {
+    await ensureDataDir();
+    const data = await fs.readFile(streakFile, 'utf8');
+    const fileData = JSON.parse(data);
+    
+    // Use file data if it exists and has a lastManualUpdate date
+    if (fileData.lastManualUpdate) {
+      const fileUpdateDate = new Date(fileData.lastManualUpdate);
+      const defaultUpdateDate = new Date(defaults.lastManualUpdate);
+      
+      // Use file data if it's newer than defaults
+      if (fileUpdateDate >= defaultUpdateDate) {
+        return fileData;
+      }
+    }
+    
+    return { ...defaults, ...fileData };
+  } catch (error) {
+    await saveData(streakFile, defaults);
+    return defaults;
+  }
 }
 
 async function saveStreakData(data) {
+  data.lastManualUpdate = new Date().toDateString();
   await saveData(streakFile, data);
 }
 
@@ -62,18 +97,40 @@ async function loadStatsData() {
   const defaults = {
     monthlyDistance: 229.5,
     yearlyDistance: 2336.0,
-    monthlyTime: 27519,
-    yearlyTime: 649710,
+    monthlyTime: 0,
+    yearlyTime: 0,
     monthlyElevation: 2793,
     yearlyElevation: 25595,
     monthlyGoal: 250,
     yearlyGoal: 3250,
     lastUpdated: null
   };
-  return await loadData(statsFile, defaults);
+
+  try {
+    await ensureDataDir();
+    const data = await fs.readFile(statsFile, 'utf8');
+    const fileData = JSON.parse(data);
+    
+    // Use file data if it exists and has a lastUpdated date
+    if (fileData.lastUpdated) {
+      const fileUpdateDate = new Date(fileData.lastUpdated);
+      const defaultUpdateDate = new Date();
+      
+      // Use file data if it's newer than defaults (1 day threshold)
+      if (fileUpdateDate >= new Date(defaultUpdateDate.getTime() - 86400000)) {
+        return fileData;
+      }
+    }
+    
+    return { ...defaults, ...fileData };
+  } catch (error) {
+    await saveData(statsFile, defaults);
+    return defaults;
+  }
 }
 
 async function saveStatsData(data) {
+  data.lastUpdated = new Date().toISOString();
   await saveData(statsFile, data);
 }
 
@@ -178,7 +235,10 @@ function cleanExistingDescription(description) {
                    !line.includes('📊') && 
                    !line.includes('Monthly:') &&
                    !line.includes('Yearly:') &&
-                   !line.includes('📷 @DailyRunGuy')) // Remove existing streak info
+                   !line.includes('📷 @DailyRunGuy') &&
+                   !line.includes('🔵') && // Remove progress bars
+                   !line.includes('🟢') &&
+                   !line.includes('⚪️'))
     .join('\n')
     .trim();
 }
@@ -442,7 +502,7 @@ app.get('/manual-streak-update', (req, res) => {
       <input type="number" id="totalElevation" name="totalElevation" value="25714" required>
       <br>
       <label for="streakStartDate">Streak Start Date (YYYY-MM-DD):</label>
-      <input type="date" id="streakStartDate" name="streakStartDate" value="2024-01-01" required>
+      <input type="date" id="streakStartDate" name="streakStartDate" value="2024-12-31" required>
       <br>
       <button type="submit">Update Streak</button>
     </form>
