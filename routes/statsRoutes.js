@@ -1,6 +1,10 @@
 const express = require('express');
 const { getAllStats } = require('../controllers/statsController');
+const refreshDataMiddleware = require('../middleware/refreshData'); // Add this line
 const router = express.Router();
+
+// Apply middleware to stats route
+router.use(refreshDataMiddleware);
 
 router.get('/stats', async (req, res) => {
   try {
