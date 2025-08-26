@@ -2,7 +2,7 @@ const { loadStreakData, saveStreakData } = require('../config/storage');
 const stravaApi = require('../services/stravaApi');
 const { formatDate } = require('../utils/formatters');
 const { updateStatsWithRun } = require('./statsController');
-const { generateDescription } = require('../utils/descriptionGenerator'); // Update import
+const { generateDescription } = require('../utils/descriptionGenerator');
 
 async function updateRunStreak() {
   try {
@@ -90,38 +90,53 @@ async function updateRunStreak() {
 }
 
 async function manuallyUpdateStreak(newStreakCount, newLongestStreak, newTotalRuns, newTotalDistance, newTotalTime, newTotalElevation, newStreakStartDate) {
-  const streakData = await loadStreakData();
-  
-  streakData.currentStreak = parseInt(newStreakCount);
-  streakData.longestStreak = parseInt(newLongestStreak);
-  streakData.totalRuns = parseInt(newTotalRuns);
-  streakData.totalDistance = parseFloat(newTotalDistance);
-  streakData.totalTime = parseFloat(newTotalTime);
-  streakData.totalElevation = parseFloat(newTotalElevation);
-  streakData.streakStartDate = newStreakStartDate;
-  streakData.manuallyUpdated = true;
-  
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  streakData.lastRunDate = yesterday.toDateString();
-  
-  streakData.lastManualUpdate = new Date().toDateString();
-  
-  await saveStreakData(streakData);
-  
-  return { 
-    success: true, 
-    message: "Streak updated manually. Your exact values will be preserved." 
-  };
+  try {
+    const streakData = await loadStreakData();
+    
+    streakData.currentStreak = parseInt(newStreakCount);
+    streakData.longestStreak = parseInt(newLongestStreak);
+    streakData.totalRuns = parseInt(newTotalRuns);
+    streakData.totalDistance = parseFloat(newTotalDistance);
+    streakData.totalTime = parseFloat(newTotalTime);
+    streakData.totalElevation = parseFloat(newTotalElevation);
+    streakData.streakStartDate = newStreakStartDate;
+    streakData.manuallyUpdated = true;
+    
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    streakData.lastRunDate = yesterday.toDateString();
+    
+    streakData.lastManualUpdate = new Date().toDateString();
+    
+    await saveStreakData(streakData);
+    
+    return { 
+      success: true, 
+      message: "Streak updated manually. Your exact values will be preserved." 
+    };
+  } catch (error) {
+    console.error('Error in manual streak update:', error);
+    throw new Error('Failed to update streak: ' + error.message);
+  }
 }
 
 async function getCurrentStreak() {
-  const data = await loadStreakData();
-  return data.currentStreak;
+  try {
+    const data = await loadStreakData();
+    return data.currentStreak;
+  } catch (error) {
+    console.error('Error getting current streak:', error);
+    throw new Error('Failed to load streak data');
+  }
 }
 
 async function getAllStreakData() {
-  return await loadStreakData();
+  try {
+    return await loadStreakData();
+  } catch (error) {
+    console.error('Error getting all streak data:', error);
+    throw new Error('Failed to load streak data');
+  }
 }
 
 module.exports = {
