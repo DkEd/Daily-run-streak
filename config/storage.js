@@ -11,15 +11,16 @@ const KEYS = {
 // Default structure for initialization
 const DEFAULT_DATA = {
   STATS: {
-    monthlyDistance: 0.00,
-    yearlyDistance: 0.00,
+    monthlyDistance: 0,
+    yearlyDistance: 0,
     monthlyTime: 0,
     yearlyTime: 0,
     monthlyElevation: 0,
     yearlyElevation: 0,
-    monthlyGoal: 250.00,
-    yearlyGoal: 3250.00,
-    lastUpdated: new Date().toISOString()
+    monthlyGoal: 250000, // 250 km in meters
+    yearlyGoal: 3250000, // 3250 km in meters
+    lastUpdated: new Date().toISOString(),
+    manuallyUpdated: false
   },
   STREAK: {
     currentStreak: 0,
