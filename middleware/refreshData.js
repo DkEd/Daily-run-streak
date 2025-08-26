@@ -2,12 +2,11 @@ const { loadStreakData, loadStatsData } = require('../config/storage');
 
 async function refreshDataMiddleware(req, res, next) {
   try {
-    // Force reload data from cloud before processing any request
-    console.log('Refreshing data from cloud storage...');
+    console.log('Refreshing data from cloud storage before processing request...');
     
-    // Clear any cached data by reloading from cloud
-    await loadStreakData(true); // Pass true to force cloud refresh
-    await loadStatsData(true);  // Pass true to force cloud refresh
+    // Force reload from cloud by passing true to bypass cache
+    await loadStreakData(true);
+    await loadStatsData(true);
     
     next();
   } catch (error) {
