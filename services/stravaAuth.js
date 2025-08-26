@@ -15,6 +15,7 @@ class StravaAuth {
 
   async exchangeCodeForToken(code) {
     try {
+      console.log('Exchanging code for token...');
       const response = await axios.post('https://www.strava.com/oauth/token', {
         client_id: this.clientId,
         client_secret: this.clientSecret,
@@ -24,15 +25,20 @@ class StravaAuth {
 
       const { access_token, refresh_token, expires_at, athlete } = response.data;
       
+      console.log('Token exchange successful, saving to Redis...');
+      
       // Store tokens in Redis
       const tokenData = { access_token, refresh_token, expires_at, athlete };
-      await saveStravaTokens(tokenData);
+      const saveResult = await saveStravaTokens(tokenData);
+      
+      console.log('Save result:', saveResult);
       
       // Also update environment variables for current session
       process.env.ACCESS_TOKEN = access_token;
       process.env.REFRESH_TOKEN = refresh_token;
       process.env.EXPIRES_AT = expires_at;
       
+      console.log('Tokens saved successfully');
       return { access_token, refresh_token, expires_at, athlete };
     } catch (error) {
       console.error('Token exchange error:', error.response?.data || error.message);
@@ -46,27 +52,38 @@ class StravaAuth {
     let refreshToken = process.env.REFRESH_TOKEN;
     let expiresAt = process.env.EXPIRES_AT;
     
+    console.log('Environment tokens - Access:', accessToken ? 'SET' : 'NOT SET', 'Refresh:', refreshToken ? 'SET' : 'NOT SET', 'Expires:', expiresAt ? 'SET' : 'NOT SET');
+    
     // If not in environment, try to get from Redis
     if (!accessToken || !refreshToken || !expiresAt) {
+      console.log('Loading tokens from Redis...');
       const tokenData = await getStravaTokens();
-      if (tokenData && tokenData.accessToken) {
-        accessToken = tokenData.accessToken;
-        refreshToken = tokenData.refreshToken;
-        expiresAt = tokenData.expiresAt;
+      console.log('Redis token data:', tokenData);
+      
+      if (tokenData && tokenData.access_token) {
+        accessToken = tokenData.access_token;
+        refreshToken = tokenData.refresh_token;
+        expiresAt = tokenData.expires_at;
         
         // Update environment variables
         process.env.ACCESS_TOKEN = accessToken;
         process.env.REFRESH_TOKEN = refreshToken;
         process.env.EXPIRES_AT = expiresAt;
+        
+        console.log('Tokens loaded from Redis to environment');
       }
     }
     
     if (!accessToken || !refreshToken || !expiresAt) {
+      console.log('No valid tokens found');
       throw new Error('No authentication tokens found. Please re-authenticate at /auth/strava');
     }
     
     // Check if token needs refreshing
-    if (Date.now() / 1000 >= expiresAt) {
+    const currentTime = Date.now() / 1000;
+    console.log('Current time:', currentTime, 'Token expires at:', expiresAt);
+    
+    if (currentTime >= expiresAt) {
       try {
         console.log('Refreshing access token...');
         const response = await axios.post('https://www.strava.com/oauth/token', {
@@ -78,12 +95,10 @@ class StravaAuth {
         
         const { access_token, refresh_token, expires_at } = response.data;
         
-        // Update Redis storage
-        const tokenData = await getStravaTokens();
-        tokenData.access_token = access_token;
-        tokenData.refresh_token = refresh_token;
-        tokenData.expires_at = expires_at;
+        console.log('Token refresh successful, updating Redis...');
         
+        // Update Redis storage
+        const tokenData = { access_token, refresh_token, expires_at };
         await saveStravaTokens(tokenData);
         
         // Update environment variables
@@ -106,17 +121,25 @@ class StravaAuth {
       }
     }
     
+    console.log('Token is still valid, no refresh needed');
     return accessToken;
   }
 
   async getAccessToken() {
-    return await this.refreshTokenIfNeeded();
+    try {
+      return await this.refreshTokenIfNeeded();
+    } catch (error) {
+      console.error('Error getting access token:', error.message);
+      throw error;
+    }
   }
 
   async isAuthenticated() {
     try {
       const tokenData = await getStravaTokens();
-      return !!(tokenData && tokenData.accessToken);
+      const isAuth = !!(tokenData && tokenData.access_token);
+      console.log('Authentication check:', isAuth);
+      return isAuth;
     } catch (error) {
       console.error('Error checking authentication:', error.message);
       return false;
@@ -129,6 +152,7 @@ class StravaAuth {
       delete process.env.ACCESS_TOKEN;
       delete process.env.REFRESH_TOKEN;
       delete process.env.EXPIRES_AT;
+      console.log('Tokens cleared successfully');
       return true;
     } catch (error) {
       console.error('Error clearing tokens:', error.message);
@@ -139,18 +163,51 @@ class StravaAuth {
   async getTokenInfo() {
     try {
       const tokenData = await getStravaTokens();
-      if (tokenData && tokenData.accessToken) {
+      if (tokenData && tokenData.access_token) {
+        const expiresIn = Math.max(0, Math.floor(tokenData.expires_at - Date.now() / 1000));
+        
         return {
           hasTokens: true,
           athlete: tokenData.athlete,
           expiresAt: new Date(tokenData.expires_at * 1000).toLocaleString(),
-          expiresIn: Math.max(0, Math.floor(tokenData.expires_at - Date.now() / 1000))
+          expiresIn: expiresIn,
+          expiresInFormatted: this.formatExpiresIn(expiresIn)
         };
       }
       return { hasTokens: false };
     } catch (error) {
       console.error('Error getting token info:', error.message);
       return { hasTokens: false };
+    }
+  }
+
+  formatExpiresIn(seconds) {
+    if (seconds < 60) {
+      return `${seconds} seconds`;
+    } else if (seconds < 3600) {
+      return `${Math.floor(seconds / 60)} minutes`;
+    } else if (seconds < 86400) {
+      return `${Math.floor(seconds / 3600)} hours`;
+    } else {
+      return `${Math.floor(seconds / 86400)} days`;
+    }
+  }
+
+  // Debug method to check token storage
+  async debugTokens() {
+    try {
+      const tokenData = await getStravaTokens();
+      return {
+        redisData: tokenData,
+        envData: {
+          ACCESS_TOKEN: process.env.ACCESS_TOKEN ? 'SET' : 'NOT SET',
+          REFRESH_TOKEN: process.env.REFRESH_TOKEN ? 'SET' : 'NOT SET', 
+          EXPIRES_AT: process.env.EXPIRES_AT ? 'SET' : 'NOT SET'
+        },
+        hasTokens: !!(tokenData && tokenData.access_token)
+      };
+    } catch (error) {
+      return { error: error.message };
     }
   }
 }
