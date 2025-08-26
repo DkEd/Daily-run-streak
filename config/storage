@@ -11,47 +11,6 @@ const JSONBIN_BASE_URL = 'https://api.jsonbin.io/v3/b';
 const JSONBIN_API_KEY = process.env.JSONBIN_API_KEY || 'your-jsonbin-api-key';
 const STATS_BIN_ID = process.env.STATS_BIN_ID || 'your-stats-bin-id';
 
-// Default structure that includes everything
-const defaultStatsData = {
-  // Stats data
-  monthlyDistance: 229.5,
-  yearlyDistance: 2336.0,
-  monthlyTime: 0,
-  yearlyTime: 0,
-  monthlyElevation: 2793,
-  yearlyElevation: 25595,
-  monthlyGoal: 250,
-  yearlyGoal: 3250,
-  lastUpdated: null,
-  
-  // Authentication tokens
-  stravaTokens: {
-    accessToken: null,
-    refreshToken: null,
-    expiresAt: null,
-    athlete: null
-  },
-  
-  // Webhook configuration
-  webhookConfig: {
-    verifyToken: process.env.WEBHOOK_VERIFY_TOKEN || 'DailyRunGuy_Verify_12345',
-    secret: process.env.WEBHOOK_SECRET || null
-  }
-};
-
-const defaultStreakData = {
-  currentStreak: 238,
-  longestStreak: 238,
-  totalRuns: 238,
-  totalDistance: 2346600,
-  totalTime: 699900,
-  totalElevation: 25714,
-  streakStartDate: "2024-12-31",
-  lastRunDate: new Date(Date.now() - 86400000).toDateString(),
-  manuallyUpdated: true,
-  lastManualUpdate: new Date().toDateString()
-};
-
 // Cache variables
 let cachedStatsData = null;
 let cachedStreakData = null;
@@ -66,20 +25,14 @@ async function ensureDataDir() {
   }
 }
 
-async function loadData(filePath, defaults) {
+async function loadData(filePath) {
   try {
     await ensureDataDir();
     const data = await fs.readFile(filePath, 'utf8');
-    const fileData = JSON.parse(data);
-    
-    if (fileData.lastManualUpdate || fileData.lastUpdated) {
-      return { ...defaults, ...fileData };
-    }
-    
-    return defaults;
+    return JSON.parse(data);
   } catch (error) {
-    await saveData(filePath, defaults);
-    return defaults;
+    console.log('No local data file found:', error.message);
+    return null;
   }
 }
 
@@ -89,7 +42,7 @@ async function saveData(filePath, data) {
 }
 
 // Cloud storage functions
-async function loadFromCloud(binId, defaults) {
+async function loadFromCloud(binId) {
   try {
     if (!JSONBIN_API_KEY || JSONBIN_API_KEY === 'your-jsonbin-api-key') {
       throw new Error('JSONBIN_API_KEY not configured');
@@ -104,8 +57,8 @@ async function loadFromCloud(binId, defaults) {
     
     return response.data;
   } catch (error) {
-    console.log('Falling back to local storage:', error.message);
-    return defaults;
+    console.log('Error loading from cloud:', error.message);
+    throw new Error('Failed to load data from cloud storage');
   }
 }
 
@@ -123,8 +76,10 @@ async function saveToCloud(binId, data) {
     });
     
     console.log('Data saved to cloud storage successfully');
+    return true;
   } catch (error) {
-    console.log('Failed to save to cloud, using local storage only:', error.message);
+    console.log('Failed to save to cloud:', error.message);
+    throw new Error('Failed to save data to cloud storage');
   }
 }
 
@@ -137,20 +92,32 @@ async function loadStreakData(forceRefresh = false) {
       return cachedStreakData;
     }
     
-    // Load everything from stats bin first
+    // Load everything from stats bin
     const allData = await loadStatsData(forceRefresh);
     
-    // Extract streak data from stats or use defaults
-    if (allData.streakData) {
-      cachedStreakData = { ...defaultStreakData, ...allData.streakData };
+    // Extract streak data from stats
+    if (allData && allData.streakData) {
+      cachedStreakData = allData.streakData;
     } else {
-      cachedStreakData = await loadData(streakFile, defaultStreakData);
+      // If no streak data in bin, try to load from local file
+      cachedStreakData = await loadData(streakFile);
+      if (!cachedStreakData) {
+        throw new Error('No streak data available in cloud or local storage');
+      }
     }
     
     lastCloudFetch = now;
     return cachedStreakData;
   } catch (error) {
-    return await loadData(streakFile, defaultStreakData);
+    console.error('Error loading streak data:', error.message);
+    
+    // Fall back to local storage
+    const localData = await loadData(streakFile);
+    if (localData) {
+      return localData;
+    }
+    
+    throw new Error('No streak data available');
   }
 }
 
@@ -176,10 +143,20 @@ async function saveStreakData(data) {
     cachedStatsData = statsData;
     cachedStreakData = data;
     lastCloudFetch = Date.now();
+    
+    return true;
   } catch (error) {
+    console.error('Error saving streak data to cloud:', error.message);
+    
     // Fall back to local storage only
-    await saveData(streakFile, data);
-    cachedStreakData = data;
+    try {
+      await saveData(streakFile, data);
+      cachedStreakData = data;
+      return true;
+    } catch (localError) {
+      console.error('Error saving to local storage:', localError.message);
+      throw new Error('Failed to save streak data');
+    }
   }
 }
 
@@ -193,19 +170,21 @@ async function loadStatsData(forceRefresh = false) {
     }
     
     // Try to load from cloud first
-    const cloudData = await loadFromCloud(STATS_BIN_ID, defaultStatsData);
-    
-    // Fall back to local storage if cloud fails
-    if (cloudData && cloudData.monthlyDistance !== undefined) {
-      cachedStatsData = cloudData;
-    } else {
-      cachedStatsData = await loadData(statsFile, defaultStatsData);
-    }
+    cachedStatsData = await loadFromCloud(STATS_BIN_ID);
     
     lastCloudFetch = now;
     return cachedStatsData;
   } catch (error) {
-    return await loadData(statsFile, defaultStatsData);
+    console.error('Error loading stats data from cloud:', error.message);
+    
+    // Fall back to local storage
+    const localData = await loadData(statsFile);
+    if (localData) {
+      cachedStatsData = localData;
+      return localData;
+    }
+    
+    throw new Error('No stats data available in cloud or local storage');
   }
 }
 
@@ -222,10 +201,20 @@ async function saveStatsData(data) {
     // Update cache
     cachedStatsData = data;
     lastCloudFetch = Date.now();
+    
+    return true;
   } catch (error) {
+    console.error('Error saving stats data to cloud:', error.message);
+    
     // Fall back to local storage only
-    await saveData(statsFile, data);
-    cachedStatsData = data;
+    try {
+      await saveData(statsFile, data);
+      cachedStatsData = data;
+      return true;
+    } catch (localError) {
+      console.error('Error saving to local storage:', localError.message);
+      throw new Error('Failed to save stats data');
+    }
   }
 }
 
