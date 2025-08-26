@@ -5,7 +5,7 @@ class StravaAuth {
   constructor() {
     this.clientId = process.env.CLIENT_ID;
     this.clientSecret = process.env.CLIENT_SECRET;
-    this.redirectUri = process.env.REDIRECT_URI;
+    this.redirectUri = process.env.REDIRECT_URI || 'https://daily-run-streak.onrender.com/auth/callback';
     this.tokenExpire = parseInt(process.env.REDIS_TOKEN_EXPIRE) || 2592000;
   }
 
