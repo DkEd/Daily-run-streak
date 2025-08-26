@@ -27,9 +27,16 @@ function formatTime(seconds) {
   }
 }
 
-function formatDistance(km, decimals = 2) {
-  if (!km || isNaN(km)) return `0.00 km`;
-  return `${parseFloat(km).toFixed(decimals)} km`;
+function formatDistance(meters, unit = 'km', decimals = 1) {
+  if (!meters || isNaN(meters)) return `0.0 ${unit}`;
+  
+  if (unit === 'km') {
+    return `${(meters / 1000).toFixed(decimals)} km`;
+  } else if (unit === 'miles') {
+    return `${(meters / 1609.34).toFixed(decimals)} mi`;
+  } else {
+    return `${meters} m`;
+  }
 }
 
 function formatElevation(meters, unit = 'm') {
@@ -57,4 +64,47 @@ function generateProgressBars(distance, goal, type = 'monthly', segments = 10) {
   }
 }
 
-// ... rest of the file remains the same
+function cleanExistingDescription(description) {
+  if (!description) return '';
+  
+  return description
+    .split('\n')
+    .filter(line => line.trim() !== '')
+    .filter(line => !line.includes('🏃🏻‍♂️Daily Run Streak:') && 
+                   !line.includes('📊') && 
+                   !line.includes('Monthly:') &&
+                   !line.includes('Yearly:') &&
+                   !line.includes('📷 @DailyRunGuy') &&
+                   !line.includes('🔵') &&
+                   !line.includes('🟢') &&
+                   !line.includes('⚪️'))
+    .join('\n')
+    .trim();
+}
+
+function capitalizeFirst(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// Convert km input to meters for storage
+function kmToMeters(km) {
+  return parseFloat(km) * 1000;
+}
+
+// Convert meters to km for display
+function metersToKm(meters, decimals = 1) {
+  return (meters / 1000).toFixed(decimals);
+}
+
+module.exports = {
+  formatDate,
+  formatTime,
+  formatDistance,
+  formatElevation,
+  generateProgressBars,
+  cleanExistingDescription,
+  capitalizeFirst,
+  kmToMeters,
+  metersToKm
+};
