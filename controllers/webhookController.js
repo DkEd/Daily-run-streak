@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const stravaApi = require('../services/stravaApi');
 const { updateStatsWithRun } = require('./statsController');
 const { updateRunStreak } = require('./streakController');
-const { loadStreakData } = require('../config/storage');
+const { loadStreakData, saveStreakData } = require('../config/redisStorage');
 const { generateDescription } = require('../utils/descriptionGenerator'); // Update import
 
 async function processActivity(activityId) {
