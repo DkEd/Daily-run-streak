@@ -1,11 +1,5 @@
 const stravaApi = require('../services/stravaApi');
-const { 
-  formatTime, 
-  formatDistance, 
-  formatElevation, 
-  generateProgressBars, 
-  cleanExistingDescription 
-} = require('./formatters');
+const { formatTime, generateProgressBars, cleanExistingDescription, metersToKm } = require('./formatters');
 const { loadStatsData } = require('../config/storage');
 
 async function generateDescription(streakData, activityId) {
@@ -16,10 +10,10 @@ async function generateDescription(streakData, activityId) {
     const stats = await loadStatsData();
     
     const streakSection = `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-📊 ${formatDistance(streakData.totalDistance)} | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${formatElevation(streakData.totalElevation)}
-Monthly: ${formatDistance(stats.monthlyDistance)}/${formatDistance(stats.monthlyGoal)} | ⛰️ ${formatElevation(stats.monthlyElevation)}
+📊 ${metersToKm(streakData.totalDistance)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
+Monthly: ${metersToKm(stats.monthlyDistance)}/${metersToKm(stats.monthlyGoal)} km  | ⛰️ ${Math.round(stats.monthlyElevation)} m
 ${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal, 'monthly')}
-Yearly: ${formatDistance(stats.yearlyDistance)}/${formatDistance(stats.yearlyGoal)} | ⛰️ ${formatElevation(stats.yearlyElevation)}
+Yearly: ${metersToKm(stats.yearlyDistance)}/${metersToKm(stats.yearlyGoal)} km  | ⛰️ ${Math.round(stats.yearlyElevation)} m
 ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal, 'yearly')}
 📷 @DailyRunGuy`;
 
@@ -36,13 +30,13 @@ ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal, 'yearly')}
     
     if (stats) {
       return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-📊 ${formatDistance(streakData.totalDistance)} | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${formatElevation(streakData.totalElevation)}
-Monthly: ${formatDistance(stats.monthlyDistance)}/${formatDistance(stats.monthlyGoal)}
-Yearly: ${formatDistance(stats.yearlyDistance)}/${formatDistance(stats.yearlyGoal)}
+📊 ${metersToKm(streakData.totalDistance)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
+Monthly: ${metersToKm(stats.monthlyDistance)}/${metersToKm(stats.monthlyGoal)} km
+Yearly: ${metersToKm(stats.yearlyDistance)}/${metersToKm(stats.yearlyGoal)} km
 📷 @DailyRunGuy`;
     } else {
       return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-📊 ${formatDistance(streakData.totalDistance)} | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${formatElevation(streakData.totalElevation)}
+📊 ${metersToKm(streakData.totalDistance)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
 📷 @DailyRunGuy`;
     }
   }
