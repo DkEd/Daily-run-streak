@@ -109,7 +109,7 @@ async function saveToCloud(binId, data) {
       throw new Error('JSONBIN_API_KEY not configured');
     }
     
-    await axios.put(`${JSONBIN_BIN_ID}/${binId}`, data, {
+    await axios.put(`${JSONBIN_BASE_URL}/${binId}`, data, {
       headers: {
         'Content-Type': 'application/json',
         'X-Master-Key': JSONBIN_API_KEY
