@@ -3,7 +3,7 @@ const stravaApi = require('../services/stravaApi');
 const { updateStatsWithRun } = require('./statsController');
 const { updateRunStreak } = require('./streakController');
 const { loadStreakData } = require('../config/storage');
-const { generateDescription } = require('./streakController');
+const { generateDescription } = require('../utils/descriptionGenerator'); // Update import
 
 async function processActivity(activityId) {
   try {
