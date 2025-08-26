@@ -45,39 +45,39 @@ async function updateRunStreak() {
     const activities = await stravaApi.getRecentActivities(2);
     const today = formatDate(new Date());
     
-    // Find today's qualifying run (>4500m)
-    const todaysRun = activities.find(activity => 
-      activity.type === 'Run' && 
-      activity.distance >= 4500 &&
-      formatDate(new Date(activity.start_date)) === today
-    );
-
-    // Update stats with ALL runs from today (for monthly/yearly stats only)
+    // Find ALL of today's runs (not just qualifying ones)
     const todaysRuns = activities.filter(activity => 
       activity.type === 'Run' && 
       formatDate(new Date(activity.start_date)) === today
     );
+
+    if (todaysRuns.length === 0) {
+      return { message: "No runs today", ...streakData };
+    }
     
+    // Update stats with ALL runs from today
     for (const run of todaysRuns) {
       await updateStatsWithRun(run);
     }
 
-    if (!todaysRun) {
-      return { message: "No qualifying run today (>4500m)", ...streakData };
-    }
-    
     // Check if we already processed today
     if (streakData.lastRunDate === todayDate) {
       return { message: "Already processed today's run", ...streakData };
     }
 
+    // Find the longest run of the day (for streak purposes)
+    const longestRun = todaysRuns.reduce((longest, current) => 
+      current.distance > longest.distance ? current : longest, todaysRuns[0]);
+    
+    const isQualifyingRun = longestRun.distance >= 4500;
+
     // DON'T update totals if manually updated - use exact manual values
-    if (!streakData.manuallyUpdated) {
-      // Only update if NOT manually updated
+    if (!streakData.manuallyUpdated && isQualifyingRun) {
+      // Only update if NOT manually updated AND it's a qualifying run
       streakData.totalRuns += 1;
-      streakData.totalDistance += todaysRun.distance;
-      streakData.totalTime += todaysRun.moving_time || 0;
-      streakData.totalElevation += todaysRun.total_elevation_gain || 0;
+      streakData.totalDistance += longestRun.distance;
+      streakData.totalTime += longestRun.moving_time || 0;
+      streakData.totalElevation += longestRun.total_elevation_gain || 0;
     }
 
     // Set lastRunDate to yesterday
@@ -86,7 +86,7 @@ async function updateRunStreak() {
     streakData.lastRunDate = yesterday.toDateString();
 
     // Keep the manually set streak count, only update if not manually set
-    if (!streakData.manuallyUpdated) {
+    if (!streakData.manuallyUpdated && isQualifyingRun) {
       if (streakData.lastRunDate === yesterday.toDateString()) {
         streakData.currentStreak += 1;
       } else {
@@ -103,16 +103,17 @@ async function updateRunStreak() {
     // Save updated data
     await saveStreakData(streakData);
 
-    // Generate description (preserves existing content)
-    const description = await generateDescription(streakData, todaysRun.id);
-
-    // Update activity description
-    await stravaApi.updateActivityDescription(todaysRun.id, description);
+    // Generate description for ALL runs (not just qualifying ones)
+    for (const run of todaysRuns) {
+      const description = await generateDescription(streakData, run.id);
+      await stravaApi.updateActivityDescription(run.id, description);
+    }
 
     return { 
-      message: "Streak updated successfully", 
-      ...streakData, 
-      newDescription: description 
+      message: isQualifyingRun 
+        ? "Streak updated successfully" 
+        : "Stats updated (run <4500m, streak not updated)",
+      ...streakData
     };
 
   } catch (error) {
