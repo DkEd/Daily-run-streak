@@ -54,7 +54,7 @@ router.post('/webhook', async (req, res) => {
 
 router.get('/setup-webhook', async (req, res) => {
   try {
-    const callbackUrl = `${process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`}/webhook`;
+    const callbackUrl = `${process.env.RENDER_EXTERNAL_URL || 'https://daily-run-streak.onrender.com'}/webhook`;
     const webhookConfig = await getWebhookConfig();
     
     try {
