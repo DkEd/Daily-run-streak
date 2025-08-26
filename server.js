@@ -18,6 +18,9 @@ app.use(express.json());
 // Initialize data on startup
 initializeData().then(() => {
   console.log('Data initialization completed');
+}).catch((error) => {
+  console.error('Data initialization failed:', error.message);
+  console.log('Continuing with in-memory storage...');
 });
 
 // Routes
