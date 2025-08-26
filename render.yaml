@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: daily-run-streak
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: REDIS_URL
+        fromSecret: REDIS_URL
+      - key: CLIENT_ID
+        fromSecret: CLIENT_ID
+      - key: CLIENT_SECRET
+        fromSecret: CLIENT_SECRET
+      - key: REDIRECT_URI
+        value: https://daily-run-streak.onrender.com/auth/callback
+      - key: WEBHOOK_VERIFY_TOKEN
+        fromSecret: WEBHOOK_VERIFY_TOKEN
+      - key: WEBHOOK_SECRET
+        fromSecret: WEBHOOK_SECRET
+      - key: RENDER_EXTERNAL_URL
+        value: https://daily-run-streak.onrender.com
