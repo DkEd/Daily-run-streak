@@ -1,6 +1,6 @@
 const express = require('express');
 const { manuallyUpdateStreak } = require('../controllers/streakController');
-const { manuallyUpdateStats } = require('../controllers/statsController');
+const { manuallyUpdateStats, toggleManualMode } = require('../controllers/statsController');
 const refreshDataMiddleware = require('../middleware/refreshData');
 const { metersToKm } = require('../utils/formatters');
 const router = express.Router();
@@ -39,8 +39,8 @@ router.get('/manual-streak-update', async (req, res) => {
         <br>
         <label for="manuallyUpdated">Manually Updated:</label>
         <select id="manuallyUpdated" name="manuallyUpdated">
-          <option value="true" ${streakData.manuallyUpdated ? 'selected' : ''}>Yes</option>
-          <option value="false" ${!streakData.manuallyUpdated ? 'selected' : ''}>No</option>
+          <option value="true" ${streakData.manuallyUpdated ? 'selected' : ''}>Yes (preserve my values)</option>
+          <option value="false" ${!streakData.manuallyUpdated ? 'selected' : ''}>No (auto-update)</option>
         </select>
         <br>
         <button type="submit">Update Streak</button>
@@ -68,6 +68,7 @@ router.get('/manual-stats-update', async (req, res) => {
     
     res.send(`
       <h1>Manual Stats Update</h1>
+      <p><strong>Current Mode:</strong> ${statsData.manuallyUpdated ? 'Manual (your values preserved)' : 'Auto (values update with runs)'}</p>
       <form action="/manual-stats-update" method="POST">
         <h3>Monthly Stats</h3>
         <label for="monthlyDistance">Monthly Distance (km):</label>
@@ -95,8 +96,15 @@ router.get('/manual-stats-update', async (req, res) => {
         <label for="yearlyGoal">Yearly Goal (km):</label>
         <input type="number" step="0.1" id="yearlyGoal" name="yearlyGoal" value="${metersToKm(statsData.yearlyGoal)}" required>
         <br>
+        <label for="manuallyUpdated">Update Mode:</label>
+        <select id="manuallyUpdated" name="manuallyUpdated">
+          <option value="true" ${statsData.manuallyUpdated ? 'selected' : ''}>Manual (preserve my values)</option>
+          <option value="false" ${!statsData.manuallyUpdated ? 'selected' : ''}>Auto (update with runs)</option>
+        </select>
+        <br>
         <button type="submit">Update Stats</button>
       </form>
+      <p><a href="/toggle-stats-mode">Toggle Auto/Manual Mode</a></p>
       <a href="/">Go back</a>
     `);
   } catch (error) {
@@ -108,6 +116,15 @@ router.post('/manual-stats-update', async (req, res) => {
   try {
     const result = await manuallyUpdateStats(req.body);
     res.send(`<h1>Manual Update Result</h1><p>${result.message}</p><pre>${JSON.stringify(result.data, null, 2)}</pre><a href="/stats">View Stats</a><br><a href="/">Home</a>`);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+  }
+});
+
+router.get('/toggle-stats-mode', async (req, res) => {
+  try {
+    const result = await toggleManualMode();
+    res.send(`<h1>Stats Mode Changed</h1><p>${result.message}</p><a href="/manual-stats-update">Update Stats</a><br><a href="/">Home</a>`);
   } catch (error) {
     res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
   }
