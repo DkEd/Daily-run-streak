@@ -4,7 +4,7 @@ const streakRoutes = require('./routes/streakRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const manualRoutes = require('./routes/manualRoutes');
-const refreshDataMiddleware = require('./middleware/refreshData'); // Add this line
+const refreshDataMiddleware = require('./middleware/refreshData');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-app.use(refreshDataMiddleware); // Add this line to use the middleware on all routes
+app.use(refreshDataMiddleware); // Use the middleware on all routes
 
 // Routes
 app.use('/', authRoutes);
