@@ -1,4 +1,4 @@
-const { loadStreakData, saveStreakData } = require('../config/storage');
+const { loadStreakData, saveStreakData } = require('../config/redisStorage');
 const stravaApi = require('../services/stravaApi');
 const { formatDate } = require('../utils/formatters');
 const { updateStatsWithRun } = require('./statsController');
