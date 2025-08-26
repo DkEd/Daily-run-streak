@@ -11,11 +11,10 @@ class RedisClient {
     try {
       const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
       
+      // Basic configuration for redis:// protocol
       this.client = createClient({
         url: redisUrl,
         socket: {
-          tls: redisUrl.startsWith('rediss://'),
-          rejectUnauthorized: false,
           connectTimeout: 10000,
           keepAlive: 30000
         }
