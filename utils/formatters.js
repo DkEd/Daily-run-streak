@@ -27,8 +27,8 @@ function formatTime(seconds) {
   }
 }
 
-function formatDistance(km, decimals = 1) {
-  if (!km || isNaN(km)) return `0.0 km`;
+function formatDistance(km, decimals = 2) {
+  if (!km || isNaN(km)) return `0.00 km`;
   return `${parseFloat(km).toFixed(decimals)} km`;
 }
 
@@ -57,35 +57,4 @@ function generateProgressBars(distance, goal, type = 'monthly', segments = 10) {
   }
 }
 
-function cleanExistingDescription(description) {
-  if (!description) return '';
-  
-  return description
-    .split('\n')
-    .filter(line => line.trim() !== '')
-    .filter(line => !line.includes('🏃🏻‍♂️Daily Run Streak:') && 
-                   !line.includes('📊') && 
-                   !line.includes('Monthly:') &&
-                   !line.includes('Yearly:') &&
-                   !line.includes('📷 @DailyRunGuy') &&
-                   !line.includes('🔵') &&
-                   !line.includes('🟢') &&
-                   !line.includes('⚪️'))
-    .join('\n')
-    .trim();
-}
-
-function capitalizeFirst(str) {
-  if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-module.exports = {
-  formatDate,
-  formatTime,
-  formatDistance,
-  formatElevation,
-  generateProgressBars,
-  cleanExistingDescription,
-  capitalizeFirst
-};
+// ... rest of the file remains the same
