@@ -2,6 +2,7 @@ const express = require('express');
 const stravaAuth = require('../services/stravaAuth');
 const { updateRunStreak, getCurrentStreak, getAllStreakData, resetStreak } = require('../controllers/streakController');
 const refreshDataMiddleware = require('../middleware/refreshData');
+const { metersToKm, formatTime } = require('../utils/formatters');
 const router = express.Router();
 
 // Apply middleware to all streak routes
@@ -66,7 +67,7 @@ router.get('/streak-details', async (req, res) => {
       <p><strong>Current Streak:</strong> ${data.currentStreak} days</p>
       <p><strong>Longest Streak:</strong> ${data.longestStreak} days</p>
       <p><strong>Total Runs:</strong> ${data.totalRuns}</p>
-      <p><strong>Total Distance:</strong> ${formatDistance(data.totalDistance)}</p>
+      <p><strong>Total Distance:</strong> ${metersToKm(data.totalDistance)} km</p>
       <p><strong>Total Time:</strong> ${formatTime(data.totalTime)}</p>
       <p><strong>Total Elevation:</strong> ${data.totalElevation} m</p>
       <p><strong>Streak Start Date:</strong> ${data.streakStartDate}</p>
@@ -111,28 +112,5 @@ router.get('/reset-streak', async (req, res) => {
     `);
   }
 });
-
-// Helper function to format time
-function formatTime(seconds) {
-  if (!seconds || isNaN(seconds)) return '0h 0m 0s';
-  
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes}m ${secs}s`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${secs}s`;
-  } else {
-    return `${secs}s`;
-  }
-}
-
-// Helper function to format distance
-function formatDistance(km) {
-  if (!km || isNaN(km)) return '0.00 km';
-  return `${parseFloat(km).toFixed(2)} km`;
-}
 
 module.exports = router;
