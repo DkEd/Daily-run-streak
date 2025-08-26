@@ -8,31 +8,35 @@ async function updateStatsWithRun(activity) {
       const activityDate = new Date(activity.start_date);
       const now = new Date();
       
-      // Reset monthly stats if it's a new month
-      if (stats.lastUpdated) {
-        const lastUpdated = new Date(stats.lastUpdated);
-        if (lastUpdated.getMonth() !== now.getMonth() || 
-            lastUpdated.getFullYear() !== now.getFullYear()) {
-          stats.monthlyDistance = 0;
-          stats.monthlyTime = 0;
-          stats.monthlyElevation = 0;
-        }
-        
-        // Reset yearly stats if it's a new year
-        if (lastUpdated.getFullYear() !== now.getFullYear()) {
-          stats.yearlyDistance = 0;
-          stats.yearlyTime = 0;
-          stats.yearlyElevation = 0;
-        }
+      // Check if stats were manually updated - if so, don't auto-update
+      const lastUpdated = stats.lastUpdated ? new Date(stats.lastUpdated) : null;
+      const isNewMonth = lastUpdated && (lastUpdated.getMonth() !== now.getMonth() || lastUpdated.getFullYear() !== now.getFullYear());
+      const isNewYear = lastUpdated && lastUpdated.getFullYear() !== now.getFullYear();
+      
+      // Reset monthly stats if it's a new month and not manually maintained
+      if (isNewMonth && !stats.manuallyUpdated) {
+        stats.monthlyDistance = 0;
+        stats.monthlyTime = 0;
+        stats.monthlyElevation = 0;
+      }
+      
+      // Reset yearly stats if it's a new year and not manually maintained
+      if (isNewYear && !stats.manuallyUpdated) {
+        stats.yearlyDistance = 0;
+        stats.yearlyTime = 0;
+        stats.yearlyElevation = 0;
       }
 
-      // Update stats with activity data (all distances in meters)
-      stats.monthlyDistance += activity.distance;
-      stats.yearlyDistance += activity.distance;
-      stats.monthlyTime += activity.moving_time || activity.elapsed_time || 0;
-      stats.yearlyTime += activity.moving_time || activity.elapsed_time || 0;
-      stats.monthlyElevation += activity.total_elevation_gain || 0;
-      stats.yearlyElevation += activity.total_elevation_gain || 0;
+      // Only update stats if they're not manually maintained
+      if (!stats.manuallyUpdated) {
+        stats.monthlyDistance += activity.distance;
+        stats.yearlyDistance += activity.distance;
+        stats.monthlyTime += activity.moving_time || activity.elapsed_time || 0;
+        stats.yearlyTime += activity.moving_time || activity.elapsed_time || 0;
+        stats.monthlyElevation += activity.total_elevation_gain || 0;
+        stats.yearlyElevation += activity.total_elevation_gain || 0;
+      }
+      
       stats.lastUpdated = now.toISOString();
 
       await saveStatsData(stats);
@@ -61,10 +65,12 @@ async function manuallyUpdateStats(updates) {
       }
     });
     
+    // Mark as manually updated
+    stats.manuallyUpdated = true;
     stats.lastUpdated = new Date().toISOString();
     await saveStatsData(stats);
     
-    return { success: true, message: "Stats updated manually", data: stats };
+    return { success: true, message: "Stats updated manually. Your values will be preserved.", data: stats };
   } catch (error) {
     console.error('Error in manual stats update:', error.message);
     throw new Error('Failed to update stats: ' + error.message);
@@ -87,6 +93,7 @@ async function resetMonthlyStats() {
     stats.monthlyDistance = 0;
     stats.monthlyTime = 0;
     stats.monthlyElevation = 0;
+    stats.manuallyUpdated = false;
     stats.lastUpdated = new Date().toISOString();
     
     await saveStatsData(stats);
@@ -105,6 +112,7 @@ async function resetYearlyStats() {
     stats.yearlyDistance = 0;
     stats.yearlyTime = 0;
     stats.yearlyElevation = 0;
+    stats.manuallyUpdated = false;
     stats.lastUpdated = new Date().toISOString();
     
     await saveStatsData(stats);
@@ -116,10 +124,30 @@ async function resetYearlyStats() {
   }
 }
 
+async function toggleManualMode() {
+  try {
+    const stats = await loadStatsData();
+    stats.manuallyUpdated = !stats.manuallyUpdated;
+    stats.lastUpdated = new Date().toISOString();
+    
+    await saveStatsData(stats);
+    
+    return { 
+      success: true, 
+      message: `Stats are now ${stats.manuallyUpdated ? 'manually' : 'automatically'} updated`,
+      data: stats 
+    };
+  } catch (error) {
+    console.error('Error toggling manual mode:', error.message);
+    throw new Error('Failed to toggle manual mode');
+  }
+}
+
 module.exports = {
   updateStatsWithRun,
   manuallyUpdateStats,
   getAllStats,
   resetMonthlyStats,
-  resetYearlyStats
+  resetYearlyStats,
+  toggleManualMode
 };
