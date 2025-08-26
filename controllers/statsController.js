@@ -1,4 +1,4 @@
-const { loadStatsData, saveStatsData } = require('../config/storage');
+const { loadStreakData, saveStreakData } = require('../config/redisStorage');
 
 async function updateStatsWithRun(activity) {
   if (activity.type === 'Run') {
