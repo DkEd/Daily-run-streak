@@ -16,7 +16,7 @@ async function generateDescription(streakData, activityId) {
     const stats = await loadStatsData();
     
     const streakSection = `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-📊 ${formatDistance(streakData.totalDistance)} | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${formatElevation(streakData.totalElevation)}
+📊 ${formatDistance(streakData.totalDistance / 1000)} | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${formatElevation(streakData.totalElevation)}
 Monthly: ${formatDistance(stats.monthlyDistance)}/${formatDistance(stats.monthlyGoal)} | ⛰️ ${formatElevation(stats.monthlyElevation)}
 ${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal, 'monthly')}
 Yearly: ${formatDistance(stats.yearlyDistance)}/${formatDistance(stats.yearlyGoal)} | ⛰️ ${formatElevation(stats.yearlyElevation)}
@@ -36,13 +36,13 @@ ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal, 'yearly')}
     
     if (stats) {
       return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-📊 ${formatDistance(streakData.totalDistance)} | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${formatElevation(streakData.totalElevation)}
+📊 ${formatDistance(streakData.totalDistance / 1000)} | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${formatElevation(streakData.totalElevation)}
 Monthly: ${formatDistance(stats.monthlyDistance)}/${formatDistance(stats.monthlyGoal)}
 Yearly: ${formatDistance(stats.yearlyDistance)}/${formatDistance(stats.yearlyGoal)}
 📷 @DailyRunGuy`;
     } else {
       return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-📊 ${formatDistance(streakData.totalDistance)} | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${formatElevation(streakData.totalElevation)}
+📊 ${formatDistance(streakData.totalDistance / 1000)} | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${formatElevation(streakData.totalElevation)}
 📷 @DailyRunGuy`;
     }
   }
