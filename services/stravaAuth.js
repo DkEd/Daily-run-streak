@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { saveStravaTokens, getStravaTokens } = require('../config/storage');
 
 class StravaAuth {
   constructor() {
@@ -22,10 +23,13 @@ class StravaAuth {
 
       const { access_token, refresh_token, expires_at, athlete } = response.data;
       
-      // Store tokens in environment variables
-      process.env.ACCESS_TOKEN = access_token;
-      process.env.REFRESH_TOKEN = refresh_token;
-      process.env.EXPIRES_AT = expires_at;
+      // Save tokens to persistent storage
+      await saveStravaTokens({
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        expiresAt: expires_at,
+        athlete: athlete
+      });
       
       return { access_token, refresh_token, expires_at, athlete };
     } catch (error) {
@@ -35,44 +39,49 @@ class StravaAuth {
   }
 
   async refreshTokenIfNeeded() {
-    const accessToken = process.env.ACCESS_TOKEN;
-    const refreshToken = process.env.REFRESH_TOKEN;
-    const expiresAt = process.env.EXPIRES_AT;
-    
-    if (!accessToken || !refreshToken || !expiresAt || Date.now() / 1000 >= expiresAt) {
-      try {
+    try {
+      // Get tokens from persistent storage
+      const tokens = await getStravaTokens();
+      
+      if (!tokens.accessToken || !tokens.refreshToken || !tokens.expiresAt || 
+          Date.now() / 1000 >= tokens.expiresAt) {
+        
         console.log('Refreshing access token...');
         const response = await axios.post('https://www.strava.com/oauth/token', {
           client_id: this.clientId,
           client_secret: this.clientSecret,
-          refresh_token: refreshToken,
+          refresh_token: tokens.refreshToken,
           grant_type: 'refresh_token'
         });
         
         const { access_token, refresh_token, expires_at } = response.data;
         
-        // Update environment variables
-        process.env.ACCESS_TOKEN = access_token;
-        process.env.REFRESH_TOKEN = refresh_token;
-        process.env.EXPIRES_AT = expires_at;
+        // Save new tokens to persistent storage
+        await saveStravaTokens({
+          accessToken: access_token,
+          refreshToken: refresh_token,
+          expiresAt: expires_at,
+          athlete: tokens.athlete
+        });
         
         console.log('Access token refreshed successfully');
         return access_token;
-      } catch (error) {
-        console.error('Error refreshing token:', error.response?.data || error.message);
-        throw new Error('Token refresh failed. Please re-authenticate at /auth/strava');
       }
+      
+      return tokens.accessToken;
+    } catch (error) {
+      console.error('Error refreshing token:', error.response?.data || error.message);
+      throw new Error('Token refresh failed. Please re-authenticate at /auth/strava');
     }
-    
-    return accessToken;
   }
 
   async getAccessToken() {
     return await this.refreshTokenIfNeeded();
   }
 
-  isAuthenticated() {
-    return !!process.env.ACCESS_TOKEN;
+  async isAuthenticated() {
+    const tokens = await getStravaTokens();
+    return !!tokens.accessToken;
   }
 }
 
