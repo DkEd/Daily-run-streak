@@ -1,7 +1,7 @@
 const express = require('express');
 const { manuallyUpdateStreak } = require('../controllers/streakController');
 const { manuallyUpdateStats } = require('../controllers/statsController');
-const refreshDataMiddleware = require('../middleware/refreshData'); // Add this line
+const refreshDataMiddleware = require('../middleware/refreshData');
 const router = express.Router();
 
 // Apply middleware to manual routes
