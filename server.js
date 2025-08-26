@@ -5,6 +5,7 @@ const statsRoutes = require('./routes/statsRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const manualRoutes = require('./routes/manualRoutes');
 const stravaAuth = require('./services/stravaAuth');
+const debugRoutes = require('./routes/debugRoutes');
 const { initializeData, healthCheck } = require('./config/storage');
 
 const app = express();
@@ -25,6 +26,7 @@ app.use('/', streakRoutes);
 app.use('/', statsRoutes);
 app.use('/', webhookRoutes);
 app.use('/', manualRoutes);
+app.use('/', debugRoutes);
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
