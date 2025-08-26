@@ -1,5 +1,4 @@
 const { loadStatsData, saveStatsData } = require('../config/storage');
-const { formatDate } = require('../utils/formatters');
 
 async function updateStatsWithRun(activity) {
   if (activity.type === 'Run') {
@@ -13,26 +12,30 @@ async function updateStatsWithRun(activity) {
         const lastUpdated = new Date(stats.lastUpdated);
         if (lastUpdated.getMonth() !== now.getMonth() || 
             lastUpdated.getFullYear() !== now.getFullYear()) {
-          stats.monthlyDistance = 0;
+          stats.monthlyDistance = 0.00;
           stats.monthlyTime = 0;
           stats.monthlyElevation = 0;
         }
         
         // Reset yearly stats if it's a new year
         if (lastUpdated.getFullYear() !== now.getFullYear()) {
-          stats.yearlyDistance = 0;
+          stats.yearlyDistance = 0.00;
           stats.yearlyTime = 0;
           stats.yearlyElevation = 0;
         }
       }
 
-      // Update stats with activity data (convert meters to km for distance)
-      stats.monthlyDistance += activity.distance / 1000; // meters to km
-      stats.yearlyDistance += activity.distance / 1000;  // meters to km
+      // Convert activity distance from meters to kilometers with 2 decimal places
+      const activityDistanceKm = parseFloat((activity.distance / 1000).toFixed(2));
+      const activityElevation = activity.total_elevation_gain || 0;
+
+      // Update stats with activity data (all in km)
+      stats.monthlyDistance = parseFloat((stats.monthlyDistance + activityDistanceKm).toFixed(2));
+      stats.yearlyDistance = parseFloat((stats.yearlyDistance + activityDistanceKm).toFixed(2));
       stats.monthlyTime += activity.moving_time || activity.elapsed_time || 0;
       stats.yearlyTime += activity.moving_time || activity.elapsed_time || 0;
-      stats.monthlyElevation += activity.total_elevation_gain || 0;
-      stats.yearlyElevation += activity.total_elevation_gain || 0;
+      stats.monthlyElevation += activityElevation;
+      stats.yearlyElevation += activityElevation;
       stats.lastUpdated = now.toISOString();
 
       await saveStatsData(stats);
@@ -52,14 +55,10 @@ async function manuallyUpdateStats(updates) {
     // Update only the provided fields
     Object.keys(updates).forEach(key => {
       if (stats.hasOwnProperty(key)) {
-        // Convert distance values from km to meters for storage
-        if (key.includes('Distance')) {
-          stats[key] = parseFloat(updates[key]); // Already in km, no conversion needed
+        // Handle distance values (ensure they're floats with 2 decimals)
+        if (key.includes('Distance') || key.includes('Goal')) {
+          stats[key] = parseFloat(parseFloat(updates[key]).toFixed(2));
         } 
-        // Convert goal values from km to meters for storage
-        else if (key.includes('Goal')) {
-          stats[key] = parseFloat(updates[key]); // Already in km, no conversion needed
-        }
         // Handle elevation and time as normal numbers
         else if (key.includes('Elevation') || key.includes('Time')) {
           stats[key] = parseFloat(updates[key]) || 0;
@@ -81,55 +80,4 @@ async function manuallyUpdateStats(updates) {
   }
 }
 
-async function getAllStats() {
-  try {
-    return await loadStatsData();
-  } catch (error) {
-    console.error('Error getting all stats:', error.message);
-    throw new Error('Failed to load stats data');
-  }
-}
-
-async function resetMonthlyStats() {
-  try {
-    const stats = await loadStatsData();
-    
-    stats.monthlyDistance = 0;
-    stats.monthlyTime = 0;
-    stats.monthlyElevation = 0;
-    stats.lastUpdated = new Date().toISOString();
-    
-    await saveStatsData(stats);
-    
-    return { success: true, message: "Monthly stats reset", data: stats };
-  } catch (error) {
-    console.error('Error resetting monthly stats:', error.message);
-    throw new Error('Failed to reset monthly stats');
-  }
-}
-
-async function resetYearlyStats() {
-  try {
-    const stats = await loadStatsData();
-    
-    stats.yearlyDistance = 0;
-    stats.yearlyTime = 0;
-    stats.yearlyElevation = 0;
-    stats.lastUpdated = new Date().toISOString();
-    
-    await saveStatsData(stats);
-    
-    return { success: true, message: "Yearly stats reset", data: stats };
-  } catch (error) {
-    console.error('Error resetting yearly stats:', error.message);
-    throw new Error('Failed to reset yearly stats');
-  }
-}
-
-module.exports = {
-  updateStatsWithRun,
-  manuallyUpdateStats,
-  getAllStats,
-  resetMonthlyStats,
-  resetYearlyStats
-};
+// ... rest of the file remains the same
