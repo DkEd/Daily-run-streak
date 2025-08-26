@@ -26,9 +26,9 @@ async function updateStatsWithRun(activity) {
         }
       }
 
-      // Update stats with activity data
-      stats.monthlyDistance += activity.distance / 1000;
-      stats.yearlyDistance += activity.distance / 1000;
+      // Update stats with activity data (convert meters to km for distance)
+      stats.monthlyDistance += activity.distance / 1000; // meters to km
+      stats.yearlyDistance += activity.distance / 1000;  // meters to km
       stats.monthlyTime += activity.moving_time || activity.elapsed_time || 0;
       stats.yearlyTime += activity.moving_time || activity.elapsed_time || 0;
       stats.monthlyElevation += activity.total_elevation_gain || 0;
@@ -52,7 +52,22 @@ async function manuallyUpdateStats(updates) {
     // Update only the provided fields
     Object.keys(updates).forEach(key => {
       if (stats.hasOwnProperty(key)) {
-        stats[key] = parseFloat(updates[key]) || updates[key];
+        // Convert distance values from km to meters for storage
+        if (key.includes('Distance')) {
+          stats[key] = parseFloat(updates[key]); // Already in km, no conversion needed
+        } 
+        // Convert goal values from km to meters for storage
+        else if (key.includes('Goal')) {
+          stats[key] = parseFloat(updates[key]); // Already in km, no conversion needed
+        }
+        // Handle elevation and time as normal numbers
+        else if (key.includes('Elevation') || key.includes('Time')) {
+          stats[key] = parseFloat(updates[key]) || 0;
+        }
+        // Handle other fields
+        else {
+          stats[key] = updates[key];
+        }
       }
     });
     
