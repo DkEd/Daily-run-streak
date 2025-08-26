@@ -1,6 +1,6 @@
 const stravaApi = require('../services/stravaApi');
 const { formatTime, generateProgressBars, cleanExistingDescription } = require('./formatters');
-const { loadStatsData } = require('../config/storage');
+const { loadStatsData } = require('../config/redisStorage');
 
 async function generateDescription(streakData, activityId) {
   try {
