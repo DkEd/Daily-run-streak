@@ -25,4 +25,37 @@ router.get('/auth/callback', async (req, res) => {
   }
 });
 
+router.get('/auth/status', async (req, res) => {
+  try {
+    const tokenInfo = await stravaAuth.getTokenInfo();
+    
+    if (tokenInfo.hasTokens) {
+      res.send(`
+        <h1>Authentication Status</h1>
+        <p><strong>Authenticated as:</strong> ${tokenInfo.athlete.firstname} ${tokenInfo.athlete.lastname}</p>
+        <p><strong>Token expires:</strong> ${tokenInfo.expiresAt}</p>
+        <p><strong>Expires in:</strong> ${tokenInfo.expiresIn} seconds</p>
+        <p><a href="/auth/logout">Logout</a> | <a href="/">Home</a></p>
+      `);
+    } else {
+      res.send(`
+        <h1>Authentication Status</h1>
+        <p><strong>Status:</strong> Not authenticated</p>
+        <p><a href="/auth/strava">Authenticate with Strava</a> | <a href="/">Home</a></p>
+      `);
+    }
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+  }
+});
+
+router.get('/auth/logout', async (req, res) => {
+  try {
+    await stravaAuth.clearTokens();
+    res.send(`<h1>Logged Out</h1><p>You have been successfully logged out.</p><a href="/">Home</a>`);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+  }
+});
+
 module.exports = router;
