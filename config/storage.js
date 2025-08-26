@@ -45,43 +45,71 @@ const DEFAULT_DATA = {
   }
 };
 
+// In-memory fallback for when Redis is unavailable
+let memoryFallback = {
+  [KEYS.STATS]: { ...DEFAULT_DATA.STATS },
+  [KEYS.STREAK]: { ...DEFAULT_DATA.STREAK },
+  [KEYS.TOKENS]: { ...DEFAULT_DATA.TOKENS },
+  [KEYS.WEBHOOK_CONFIG]: { ...DEFAULT_DATA.WEBHOOK_CONFIG }
+};
+
 async function initializeData() {
   try {
-    // Check if data exists, if not initialize with defaults
-    const statsExist = await redisClient.exists(KEYS.STATS);
-    const streakExist = await redisClient.exists(KEYS.STREAK);
-    const tokensExist = await redisClient.exists(KEYS.TOKENS);
-    const webhookExist = await redisClient.exists(KEYS.WEBHOOK_CONFIG);
+    // Check if Redis is available
+    const redisAvailable = await redisClient.healthCheck();
+    
+    if (redisAvailable) {
+      // Check if data exists, if not initialize with defaults
+      const statsExist = await redisClient.exists(KEYS.STATS);
+      const streakExist = await redisClient.exists(KEYS.STREAK);
+      const tokensExist = await redisClient.exists(KEYS.TOKENS);
+      const webhookExist = await redisClient.exists(KEYS.WEBHOOK_CONFIG);
 
-    if (!statsExist) await redisClient.set(KEYS.STATS, DEFAULT_DATA.STATS);
-    if (!streakExist) await redisClient.set(KEYS.STREAK, DEFAULT_DATA.STREAK);
-    if (!tokensExist) await redisClient.set(KEYS.TOKENS, DEFAULT_DATA.TOKENS);
-    if (!webhookExist) await redisClient.set(KEYS.WEBHOOK_CONFIG, DEFAULT_DATA.WEBHOOK_CONFIG);
+      if (!statsExist) await redisClient.set(KEYS.STATS, DEFAULT_DATA.STATS);
+      if (!streakExist) await redisClient.set(KEYS.STREAK, DEFAULT_DATA.STREAK);
+      if (!tokensExist) await redisClient.set(KEYS.TOKENS, DEFAULT_DATA.TOKENS);
+      if (!webhookExist) await redisClient.set(KEYS.WEBHOOK_CONFIG, DEFAULT_DATA.WEBHOOK_CONFIG);
 
-    console.log('Data initialization completed');
+      console.log('Data initialization completed in Redis');
+    } else {
+      console.log('Using in-memory fallback storage (Redis unavailable)');
+    }
   } catch (error) {
     console.error('Error initializing data:', error.message);
+    console.log('Using in-memory fallback storage');
   }
 }
 
 // Stats functions
 async function loadStatsData() {
   try {
-    const data = await redisClient.get(KEYS.STATS);
-    return data || DEFAULT_DATA.STATS;
+    const redisAvailable = await redisClient.healthCheck();
+    if (redisAvailable) {
+      const data = await redisClient.get(KEYS.STATS);
+      return data || DEFAULT_DATA.STATS;
+    } else {
+      return memoryFallback[KEYS.STATS];
+    }
   } catch (error) {
     console.error('Error loading stats data:', error.message);
-    return DEFAULT_DATA.STATS;
+    return memoryFallback[KEYS.STATS];
   }
 }
 
 async function saveStatsData(data) {
   try {
     data.lastUpdated = new Date().toISOString();
-    await redisClient.set(KEYS.STATS, data);
+    
+    const redisAvailable = await redisClient.healthCheck();
+    if (redisAvailable) {
+      await redisClient.set(KEYS.STATS, data);
+    } else {
+      memoryFallback[KEYS.STATS] = data;
+    }
     return true;
   } catch (error) {
     console.error('Error saving stats data:', error.message);
+    memoryFallback[KEYS.STATS] = data;
     return false;
   }
 }
@@ -89,21 +117,33 @@ async function saveStatsData(data) {
 // Streak functions
 async function loadStreakData() {
   try {
-    const data = await redisClient.get(KEYS.STREAK);
-    return data || DEFAULT_DATA.STREAK;
+    const redisAvailable = await redisClient.healthCheck();
+    if (redisAvailable) {
+      const data = await redisClient.get(KEYS.STREAK);
+      return data || DEFAULT_DATA.STREAK;
+    } else {
+      return memoryFallback[KEYS.STREAK];
+    }
   } catch (error) {
     console.error('Error loading streak data:', error.message);
-    return DEFAULT_DATA.STREAK;
+    return memoryFallback[KEYS.STREAK];
   }
 }
 
 async function saveStreakData(data) {
   try {
     data.lastManualUpdate = new Date().toISOString();
-    await redisClient.set(KEYS.STREAK, data);
+    
+    const redisAvailable = await redisClient.healthCheck();
+    if (redisAvailable) {
+      await redisClient.set(KEYS.STREAK, data);
+    } else {
+      memoryFallback[KEYS.STREAK] = data;
+    }
     return true;
   } catch (error) {
     console.error('Error saving streak data:', error.message);
+    memoryFallback[KEYS.STREAK] = data;
     return false;
   }
 }
@@ -111,7 +151,12 @@ async function saveStreakData(data) {
 // Token functions
 async function saveStravaTokens(tokens) {
   try {
-    await redisClient.set(KEYS.TOKENS, tokens);
+    const redisAvailable = await redisClient.healthCheck();
+    if (redisAvailable) {
+      await redisClient.set(KEYS.TOKENS, tokens);
+    } else {
+      memoryFallback[KEYS.TOKENS] = tokens;
+    }
     
     // Also update environment variables for current session
     if (tokens.accessToken) process.env.ACCESS_TOKEN = tokens.accessToken;
@@ -121,37 +166,54 @@ async function saveStravaTokens(tokens) {
     return true;
   } catch (error) {
     console.error('Error saving tokens:', error.message);
+    memoryFallback[KEYS.TOKENS] = tokens;
     return false;
   }
 }
 
 async function getStravaTokens() {
   try {
-    const tokens = await redisClient.get(KEYS.TOKENS);
-    return tokens || DEFAULT_DATA.TOKENS;
+    const redisAvailable = await redisClient.healthCheck();
+    if (redisAvailable) {
+      const tokens = await redisClient.get(KEYS.TOKENS);
+      return tokens || DEFAULT_DATA.TOKENS;
+    } else {
+      return memoryFallback[KEYS.TOKENS];
+    }
   } catch (error) {
     console.error('Error loading tokens:', error.message);
-    return DEFAULT_DATA.TOKENS;
+    return memoryFallback[KEYS.TOKENS];
   }
 }
 
 // Webhook config functions
 async function getWebhookConfig() {
   try {
-    const config = await redisClient.get(KEYS.WEBHOOK_CONFIG);
-    return config || DEFAULT_DATA.WEBHOOK_CONFIG;
+    const redisAvailable = await redisClient.healthCheck();
+    if (redisAvailable) {
+      const config = await redisClient.get(KEYS.WEBHOOK_CONFIG);
+      return config || DEFAULT_DATA.WEBHOOK_CONFIG;
+    } else {
+      return memoryFallback[KEYS.WEBHOOK_CONFIG];
+    }
   } catch (error) {
     console.error('Error loading webhook config:', error.message);
-    return DEFAULT_DATA.WEBHOOK_CONFIG;
+    return memoryFallback[KEYS.WEBHOOK_CONFIG];
   }
 }
 
 async function saveWebhookConfig(config) {
   try {
-    await redisClient.set(KEYS.WEBHOOK_CONFIG, config);
+    const redisAvailable = await redisClient.healthCheck();
+    if (redisAvailable) {
+      await redisClient.set(KEYS.WEBHOOK_CONFIG, config);
+    } else {
+      memoryFallback[KEYS.WEBHOOK_CONFIG] = config;
+    }
     return true;
   } catch (error) {
     console.error('Error saving webhook config:', error.message);
+    memoryFallback[KEYS.WEBHOOK_CONFIG] = config;
     return false;
   }
 }
