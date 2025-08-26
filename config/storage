@@ -1,245 +1,58 @@
-const axios = require('axios');
-const fs = require('fs').promises;
-const path = require('path');
+// Add this near the top of the file
+const CACHE_DURATION = 60000; // 1 minute cache
+let lastCloudFetch = 0;
+let cachedStatsData = null;
+let cachedStreakData = null;
 
-const dataDir = path.join(__dirname, '../data');
-const streakFile = path.join(dataDir, 'streakData.json');
-const statsFile = path.join(dataDir, 'statsData.json');
-
-// JSONBin.io configuration
-const JSONBIN_BASE_URL = 'https://api.jsonbin.io/v3/b';
-const JSONBIN_API_KEY = process.env.JSONBIN_API_KEY || 'your-jsonbin-api-key';
-const STATS_BIN_ID = process.env.STATS_BIN_ID || 'your-stats-bin-id';
-
-// Default structure that includes everything
-const defaultStatsData = {
-  // Stats data
-  monthlyDistance: 229.5,
-  yearlyDistance: 2336.0,
-  monthlyTime: 0,
-  yearlyTime: 0,
-  monthlyElevation: 2793,
-  yearlyElevation: 25595,
-  monthlyGoal: 250,
-  yearlyGoal: 3250,
-  lastUpdated: null,
-  
-  // Authentication tokens
-  stravaTokens: {
-    accessToken: null,
-    refreshToken: null,
-    expiresAt: null,
-    athlete: null
-  },
-  
-  // Webhook configuration
-  webhookConfig: {
-    verifyToken: process.env.WEBHOOK_VERIFY_TOKEN || 'DailyRunGuy_Verify_12345',
-    secret: process.env.WEBHOOK_SECRET || null
-  }
-};
-
-const defaultStreakData = {
-  currentStreak: 238,
-  longestStreak: 238,
-  totalRuns: 238,
-  totalDistance: 2346600,
-  totalTime: 699900,
-  totalElevation: 25714,
-  streakStartDate: "2024-12-31",
-  lastRunDate: new Date(Date.now() - 86400000).toDateString(),
-  manuallyUpdated: true,
-  lastManualUpdate: new Date().toDateString()
-};
-
-async function ensureDataDir() {
+// Update the load functions to accept a forceRefresh parameter
+async function loadStreakData(forceRefresh = false) {
   try {
-    await fs.access(dataDir);
-  } catch {
-    await fs.mkdir(dataDir, { recursive: true });
-  }
-}
-
-async function loadData(filePath, defaults) {
-  try {
-    await ensureDataDir();
-    const data = await fs.readFile(filePath, 'utf8');
-    const fileData = JSON.parse(data);
+    const now = Date.now();
     
-    if (fileData.lastManualUpdate || fileData.lastUpdated) {
-      return { ...defaults, ...fileData };
+    // Use cache if not forcing refresh and cache is still valid
+    if (!forceRefresh && cachedStreakData && (now - lastCloudFetch) < CACHE_DURATION) {
+      return cachedStreakData;
     }
     
-    return defaults;
-  } catch (error) {
-    await saveData(filePath, defaults);
-    return defaults;
-  }
-}
-
-async function saveData(filePath, data) {
-  await ensureDataDir();
-  await fs.writeFile(filePath, JSON.stringify(data, null, 2));
-}
-
-// Cloud storage functions
-async function loadFromCloud(binId, defaults) {
-  try {
-    if (!JSONBIN_API_KEY || JSONBIN_API_KEY === 'your-jsonbin-api-key') {
-      throw new Error('JSONBIN_API_KEY not configured');
-    }
-    
-    const response = await axios.get(`${JSONBIN_BASE_URL}/${binId}/latest`, {
-      headers: {
-        'X-Master-Key': JSONBIN_API_KEY,
-        'X-Bin-Meta': false
-      }
-    });
-    
-    return response.data;
-  } catch (error) {
-    console.log('Falling back to local storage:', error.message);
-    return defaults;
-  }
-}
-
-async function saveToCloud(binId, data) {
-  try {
-    if (!JSONBIN_API_KEY || JSONBIN_API_KEY === 'your-jsonbin-api-key') {
-      throw new Error('JSONBIN_API_KEY not configured');
-    }
-    
-    await axios.put(`${JSONBIN_BASE_URL}/${binId}`, data, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': JSONBIN_API_KEY
-      }
-    });
-    
-    console.log('Data saved to cloud storage successfully');
-  } catch (error) {
-    console.log('Failed to save to cloud, using local storage only:', error.message);
-  }
-}
-
-async function loadStreakData() {
-  try {
     // Load everything from stats bin first
-    const allData = await loadStatsData();
+    const allData = await loadStatsData(forceRefresh);
     
     // Extract streak data from stats or use defaults
     if (allData.streakData) {
-      return { ...defaultStreakData, ...allData.streakData };
+      cachedStreakData = { ...defaultStreakData, ...allData.streakData };
+    } else {
+      cachedStreakData = await loadData(streakFile, defaultStreakData);
     }
     
-    return await loadData(streakFile, defaultStreakData);
+    lastCloudFetch = now;
+    return cachedStreakData;
   } catch (error) {
     return await loadData(streakFile, defaultStreakData);
   }
 }
 
-async function saveStreakData(data) {
-  data.lastManualUpdate = new Date().toDateString();
-  
+async function loadStatsData(forceRefresh = false) {
   try {
-    // Load current stats data
-    const statsData = await loadStatsData();
+    const now = Date.now();
     
-    // Update streak data within stats
-    statsData.streakData = data;
-    statsData.lastUpdated = new Date().toISOString();
+    // Use cache if not forcing refresh and cache is still valid
+    if (!forceRefresh && cachedStatsData && (now - lastCloudFetch) < CACHE_DURATION) {
+      return cachedStatsData;
+    }
     
-    // Save everything to cloud
-    await saveToCloud(STATS_BIN_ID, statsData);
-    
-    // Also save locally as backup
-    await saveData(statsFile, statsData);
-    await saveData(streakFile, data);
-  } catch (error) {
-    // Fall back to local storage only
-    await saveData(streakFile, data);
-  }
-}
-
-async function loadStatsData() {
-  try {
     // Try to load from cloud first
     const cloudData = await loadFromCloud(STATS_BIN_ID, defaultStatsData);
     
     // Fall back to local storage if cloud fails
     if (cloudData && cloudData.monthlyDistance !== undefined) {
-      return cloudData;
+      cachedStatsData = cloudData;
+    } else {
+      cachedStatsData = await loadData(statsFile, defaultStatsData);
     }
     
-    return await loadData(statsFile, defaultStatsData);
+    lastCloudFetch = now;
+    return cachedStatsData;
   } catch (error) {
     return await loadData(statsFile, defaultStatsData);
   }
 }
-
-async function saveStatsData(data) {
-  data.lastUpdated = new Date().toISOString();
-  
-  try {
-    // Save to cloud
-    await saveToCloud(STATS_BIN_ID, data);
-    
-    // Also save locally as backup
-    await saveData(statsFile, data);
-  } catch (error) {
-    // Fall back to local storage only
-    await saveData(statsFile, data);
-  }
-}
-
-// Token management functions
-async function saveStravaTokens(tokens) {
-  try {
-    const statsData = await loadStatsData();
-    statsData.stravaTokens = tokens;
-    statsData.lastUpdated = new Date().toISOString();
-    
-    await saveStatsData(statsData);
-    
-    // Also update environment variables for current session
-    if (tokens.accessToken) process.env.ACCESS_TOKEN = tokens.accessToken;
-    if (tokens.refreshToken) process.env.REFRESH_TOKEN = tokens.refreshToken;
-    if (tokens.expiresAt) process.env.EXPIRES_AT = tokens.expiresAt;
-    
-    return true;
-  } catch (error) {
-    console.error('Error saving tokens:', error);
-    return false;
-  }
-}
-
-async function getStravaTokens() {
-  try {
-    const statsData = await loadStatsData();
-    return statsData.stravaTokens || {};
-  } catch (error) {
-    console.error('Error loading tokens:', error);
-    return {};
-  }
-}
-
-// Webhook config functions
-async function getWebhookConfig() {
-  try {
-    const statsData = await loadStatsData();
-    return statsData.webhookConfig || {};
-  } catch (error) {
-    console.error('Error loading webhook config:', error);
-    return {};
-  }
-}
-
-module.exports = {
-  loadStreakData,
-  saveStreakData,
-  loadStatsData,
-  saveStatsData,
-  saveStravaTokens,
-  getStravaTokens,
-  getWebhookConfig
-};
