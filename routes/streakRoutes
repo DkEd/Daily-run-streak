@@ -1,7 +1,7 @@
 const express = require('express');
 const stravaAuth = require('../services/stravaAuth');
 const { updateRunStreak, getCurrentStreak, getAllStreakData } = require('../controllers/streakController');
-const refreshDataMiddleware = require('../middleware/refreshData'); // Add this line
+const refreshDataMiddleware = require('../middleware/refreshData');
 const router = express.Router();
 
 // Apply middleware to all streak routes
