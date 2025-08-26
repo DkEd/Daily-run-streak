@@ -37,6 +37,16 @@ app.get('/health', async (req, res) => {
   });
 });
 
+// Redis connection status endpoint
+app.get('/redis-status', async (req, res) => {
+  const redisHealth = await healthCheck();
+  if (redisHealth) {
+    res.send('<h1>Redis Status: Connected</h1><a href="/">Home</a>');
+  } else {
+    res.status(500).send('<h1>Redis Status: Disconnected</h1><p>Check your Redis configuration</p><a href="/">Home</a>');
+  }
+});
+
 // Home route
 app.get('/', async (req, res) => {
   try {
@@ -45,8 +55,14 @@ app.get('/', async (req, res) => {
       ? `<p>Authenticated as: ${tokenInfo.athlete.firstname} ${tokenInfo.athlete.lastname} | <a href="/auth/status">Auth Status</a> | <a href="/auth/logout">Logout</a></p>`
       : '<p>Not authenticated | <a href="/auth/strava">Authenticate with Strava</a> | <a href="/auth/status">Auth Status</a></p>';
     
+    const redisHealth = await healthCheck();
+    const redisStatus = redisHealth 
+      ? '<p style="color: green;">Redis: Connected</p>' 
+      : '<p style="color: red;">Redis: Disconnected - <a href="/redis-status">Check Status</a></p>';
+    
     res.send(`
       <h1>Strava Run Streak Updater</h1>
+      ${redisStatus}
       ${authStatus}
       <p>Visit <a href="/update-streak">/update-streak</a> to update your streak</p>
       <p>Visit <a href="/streak-status">/streak-status</a> to check current streak</p>
@@ -76,7 +92,7 @@ app.listen(PORT, async () => {
   if (redisHealthy) {
     console.log('Redis connection established successfully');
   } else {
-    console.log('Redis connection failed');
+    console.log('Redis connection failed - check your REDIS_URL configuration');
   }
 });
 
