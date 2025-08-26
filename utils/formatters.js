@@ -12,7 +12,7 @@ function formatDate(date, includeTime = false) {
 }
 
 function formatTime(seconds) {
-  if (!seconds || isNaN(seconds)) return '0h 0m';
+  if (!seconds || isNaN(seconds)) return '0h 0m 0s';
   
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -27,16 +27,9 @@ function formatTime(seconds) {
   }
 }
 
-function formatDistance(meters, unit = 'km', decimals = 1) {
-  if (!meters || isNaN(meters)) return `0.0 ${unit}`;
-  
-  if (unit === 'km') {
-    return `${(meters / 1000).toFixed(decimals)} km`;
-  } else if (unit === 'miles') {
-    return `${(meters / 1609.34).toFixed(decimals)} mi`;
-  } else {
-    return `${meters} m`;
-  }
+function formatDistance(km, decimals = 1) {
+  if (!km || isNaN(km)) return `0.0 km`;
+  return `${parseFloat(km).toFixed(decimals)} km`;
 }
 
 function formatElevation(meters, unit = 'm') {
