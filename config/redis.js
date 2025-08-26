@@ -6,12 +6,16 @@ class RedisClient {
     this.connect();
   }
 
-  connect() {
+  async connect() {
     try {
-      // Use Redis URL from environment or default to localhost
       const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+      
       this.client = redis.createClient({
-        url: redisUrl
+        url: redisUrl,
+        socket: {
+          tls: redisUrl.startsWith('rediss://'),
+          rejectUnauthorized: false
+        }
       });
 
       this.client.on('error', (err) => {
@@ -22,7 +26,8 @@ class RedisClient {
         console.log('Redis Client Connected');
       });
 
-      this.client.connect();
+      await this.client.connect();
+      console.log('Redis connection established');
     } catch (error) {
       console.error('Failed to connect to Redis:', error);
     }
@@ -69,6 +74,62 @@ class RedisClient {
     } catch (error) {
       console.error('Redis exists error:', error);
       return false;
+    }
+  }
+
+  // Special method for storing stats data
+  async saveStatsData(data) {
+    try {
+      await this.set('strava_stats', data);
+      console.log('Stats data saved to Redis');
+      return true;
+    } catch (error) {
+      console.error('Error saving stats data:', error);
+      return false;
+    }
+  }
+
+  // Special method for loading stats data
+  async loadStatsData() {
+    try {
+      const data = await this.get('strava_stats');
+      if (data) {
+        console.log('Stats data loaded from Redis');
+        return data;
+      }
+      console.log('No stats data found in Redis');
+      return null;
+    } catch (error) {
+      console.error('Error loading stats data:', error);
+      return null;
+    }
+  }
+
+  // Special method for storing streak data
+  async saveStreakData(data) {
+    try {
+      await this.set('strava_streak', data);
+      console.log('Streak data saved to Redis');
+      return true;
+    } catch (error) {
+      console.error('Error saving streak data:', error);
+      return false;
+    }
+  }
+
+  // Special method for loading streak data
+  async loadStreakData() {
+    try {
+      const data = await this.get('strava_streak');
+      if (data) {
+        console.log('Streak data loaded from Redis');
+        return data;
+      }
+      console.log('No streak data found in Redis');
+      return null;
+    } catch (error) {
+      console.error('Error loading streak data:', error);
+      return null;
     }
   }
 }
