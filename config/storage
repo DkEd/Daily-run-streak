@@ -1,15 +1,138 @@
-// Add this near the top of the file
-const CACHE_DURATION = 60000; // 1 minute cache
-let lastCloudFetch = 0;
+const axios = require('axios');
+const fs = require('fs').promises;
+const path = require('path');
+
+const dataDir = path.join(__dirname, '../data');
+const streakFile = path.join(dataDir, 'streakData.json');
+const statsFile = path.join(dataDir, 'statsData.json');
+
+// JSONBin.io configuration
+const JSONBIN_BASE_URL = 'https://api.jsonbin.io/v3/b';
+const JSONBIN_API_KEY = process.env.JSONBIN_API_KEY || 'your-jsonbin-api-key';
+const STATS_BIN_ID = process.env.STATS_BIN_ID || 'your-stats-bin-id';
+
+// Default structure that includes everything
+const defaultStatsData = {
+  // Stats data
+  monthlyDistance: 229.5,
+  yearlyDistance: 2336.0,
+  monthlyTime: 0,
+  yearlyTime: 0,
+  monthlyElevation: 2793,
+  yearlyElevation: 25595,
+  monthlyGoal: 250,
+  yearlyGoal: 3250,
+  lastUpdated: null,
+  
+  // Authentication tokens
+  stravaTokens: {
+    accessToken: null,
+    refreshToken: null,
+    expiresAt: null,
+    athlete: null
+  },
+  
+  // Webhook configuration
+  webhookConfig: {
+    verifyToken: process.env.WEBHOOK_VERIFY_TOKEN || 'DailyRunGuy_Verify_12345',
+    secret: process.env.WEBHOOK_SECRET || null
+  }
+};
+
+const defaultStreakData = {
+  currentStreak: 238,
+  longestStreak: 238,
+  totalRuns: 238,
+  totalDistance: 2346600,
+  totalTime: 699900,
+  totalElevation: 25714,
+  streakStartDate: "2024-12-31",
+  lastRunDate: new Date(Date.now() - 86400000).toDateString(),
+  manuallyUpdated: true,
+  lastManualUpdate: new Date().toDateString()
+};
+
+// Cache variables
 let cachedStatsData = null;
 let cachedStreakData = null;
+let lastCloudFetch = 0;
+const CACHE_DURATION = 30000; // 30 seconds
 
-// Update the load functions to accept a forceRefresh parameter
+async function ensureDataDir() {
+  try {
+    await fs.access(dataDir);
+  } catch {
+    await fs.mkdir(dataDir, { recursive: true });
+  }
+}
+
+async function loadData(filePath, defaults) {
+  try {
+    await ensureDataDir();
+    const data = await fs.readFile(filePath, 'utf8');
+    const fileData = JSON.parse(data);
+    
+    if (fileData.lastManualUpdate || fileData.lastUpdated) {
+      return { ...defaults, ...fileData };
+    }
+    
+    return defaults;
+  } catch (error) {
+    await saveData(filePath, defaults);
+    return defaults;
+  }
+}
+
+async function saveData(filePath, data) {
+  await ensureDataDir();
+  await fs.writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+// Cloud storage functions
+async function loadFromCloud(binId, defaults) {
+  try {
+    if (!JSONBIN_API_KEY || JSONBIN_API_KEY === 'your-jsonbin-api-key') {
+      throw new Error('JSONBIN_API_KEY not configured');
+    }
+    
+    const response = await axios.get(`${JSONBIN_BASE_URL}/${binId}/latest`, {
+      headers: {
+        'X-Master-Key': JSONBIN_API_KEY,
+        'X-Bin-Meta': false
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.log('Falling back to local storage:', error.message);
+    return defaults;
+  }
+}
+
+async function saveToCloud(binId, data) {
+  try {
+    if (!JSONBIN_API_KEY || JSONBIN_API_KEY === 'your-jsonbin-api-key') {
+      throw new Error('JSONBIN_API_KEY not configured');
+    }
+    
+    await axios.put(`${JSONBIN_BASE_URL}/${binId}`, data, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': JSONBIN_API_KEY
+      }
+    });
+    
+    console.log('Data saved to cloud storage successfully');
+  } catch (error) {
+    console.log('Failed to save to cloud, using local storage only:', error.message);
+  }
+}
+
 async function loadStreakData(forceRefresh = false) {
   try {
     const now = Date.now();
     
-    // Use cache if not forcing refresh and cache is still valid
+    // Return cached data if not forcing refresh and cache is still valid
     if (!forceRefresh && cachedStreakData && (now - lastCloudFetch) < CACHE_DURATION) {
       return cachedStreakData;
     }
@@ -31,11 +154,40 @@ async function loadStreakData(forceRefresh = false) {
   }
 }
 
+async function saveStreakData(data) {
+  data.lastManualUpdate = new Date().toDateString();
+  
+  try {
+    // Load current stats data
+    const statsData = await loadStatsData();
+    
+    // Update streak data within stats
+    statsData.streakData = data;
+    statsData.lastUpdated = new Date().toISOString();
+    
+    // Save everything to cloud
+    await saveToCloud(STATS_BIN_ID, statsData);
+    
+    // Also save locally as backup
+    await saveData(statsFile, statsData);
+    await saveData(streakFile, data);
+    
+    // Update cache
+    cachedStatsData = statsData;
+    cachedStreakData = data;
+    lastCloudFetch = Date.now();
+  } catch (error) {
+    // Fall back to local storage only
+    await saveData(streakFile, data);
+    cachedStreakData = data;
+  }
+}
+
 async function loadStatsData(forceRefresh = false) {
   try {
     const now = Date.now();
     
-    // Use cache if not forcing refresh and cache is still valid
+    // Return cached data if not forcing refresh and cache is still valid
     if (!forceRefresh && cachedStatsData && (now - lastCloudFetch) < CACHE_DURATION) {
       return cachedStatsData;
     }
@@ -56,3 +208,75 @@ async function loadStatsData(forceRefresh = false) {
     return await loadData(statsFile, defaultStatsData);
   }
 }
+
+async function saveStatsData(data) {
+  data.lastUpdated = new Date().toISOString();
+  
+  try {
+    // Save to cloud
+    await saveToCloud(STATS_BIN_ID, data);
+    
+    // Also save locally as backup
+    await saveData(statsFile, data);
+    
+    // Update cache
+    cachedStatsData = data;
+    lastCloudFetch = Date.now();
+  } catch (error) {
+    // Fall back to local storage only
+    await saveData(statsFile, data);
+    cachedStatsData = data;
+  }
+}
+
+// Token management functions
+async function saveStravaTokens(tokens) {
+  try {
+    const statsData = await loadStatsData();
+    statsData.stravaTokens = tokens;
+    statsData.lastUpdated = new Date().toISOString();
+    
+    await saveStatsData(statsData);
+    
+    // Also update environment variables for current session
+    if (tokens.accessToken) process.env.ACCESS_TOKEN = tokens.accessToken;
+    if (tokens.refreshToken) process.env.REFRESH_TOKEN = tokens.refreshToken;
+    if (tokens.expiresAt) process.env.EXPIRES_AT = tokens.expiresAt;
+    
+    return true;
+  } catch (error) {
+    console.error('Error saving tokens:', error);
+    return false;
+  }
+}
+
+async function getStravaTokens() {
+  try {
+    const statsData = await loadStatsData();
+    return statsData.stravaTokens || {};
+  } catch (error) {
+    console.error('Error loading tokens:', error);
+    return {};
+  }
+}
+
+// Webhook config functions
+async function getWebhookConfig() {
+  try {
+    const statsData = await loadStatsData();
+    return statsData.webhookConfig || {};
+  } catch (error) {
+    console.error('Error loading webhook config:', error);
+    return {};
+  }
+}
+
+module.exports = {
+  loadStreakData,
+  saveStreakData,
+  loadStatsData,
+  saveStatsData,
+  saveStravaTokens,
+  getStravaTokens,
+  getWebhookConfig
+};
