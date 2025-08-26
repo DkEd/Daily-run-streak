@@ -11,22 +11,27 @@ class RedisClient {
     try {
       const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
       
-      // Basic configuration for redis:// protocol
+      console.log('Connecting to Redis:', redisUrl.replace(/:([^:@]+)@/, ':****@')); // Mask password in logs
+      
+      // Configuration for Upstash Redis (standard redis:// protocol)
       this.client = createClient({
         url: redisUrl,
         socket: {
           connectTimeout: 10000,
-          keepAlive: 30000
+          keepAlive: 30000,
+          // Upstash might need these additional options
+          tls: redisUrl.includes('upstash.io') || redisUrl.includes('upstash.com'),
+          rejectUnauthorized: false
         }
       });
 
       this.client.on('error', (err) => {
-        console.error('Redis Client Error:', err);
+        console.error('Redis Client Error:', err.message);
         this.isConnected = false;
       });
 
       this.client.on('connect', () => {
-        console.log('Redis Client Connecting...');
+        console.log('Redis Client Connecting to Upstash...');
       });
 
       this.client.on('ready', () => {
@@ -40,6 +45,7 @@ class RedisClient {
       });
 
       await this.client.connect();
+      console.log('Successfully connected to Upstash Redis');
       return true;
     } catch (error) {
       console.error('Failed to connect to Redis:', error.message);
@@ -135,6 +141,10 @@ class RedisClient {
   }
 
   async healthCheck() {
+    if (!this.isConnected) {
+      return false;
+    }
+    
     try {
       await this.client.ping();
       return true;
