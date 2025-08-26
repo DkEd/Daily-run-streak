@@ -22,7 +22,7 @@ async function updateRunStreak() {
       return { message: "No runs today", ...streakData };
     }
     
-    // Update stats with ALL runs from today
+    // Update stats with ALL runs from today (will respect manual mode)
     for (const run of todaysRuns) {
       await updateStatsWithRun(run);
     }
