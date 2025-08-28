@@ -168,7 +168,7 @@ app.get('/xapp', async (req, res) => {
   }
 });
 
-// Home route (public landing page)
+// Home route (public landing page) - NO NAVIGATION, NO LINKS
 app.get('/', async (req, res) => {
   try {
     res.send(`
@@ -181,18 +181,12 @@ app.get('/', async (req, res) => {
           .hero { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 50px 20px; border-radius: 10px; margin-bottom: 30px; }
           .features { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin: 30px 0; }
           .feature { background: #f8f9fa; padding: 20px; border-radius: 8px; width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-          .btn { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px; font-weight: bold; }
-          .btn:hover { background: #5a6fd8; }
-          .nav { background: #333; padding: 10px; margin-bottom: 20px; }
-          .nav a { color: white; margin-right: 15px; text-decoration: none; }
         </style>
       </head>
       <body>
-      
         <div class="hero">
           <h1>🏃🏻‍♂️ Strava Run Streak Tracker</h1>
           <p>Track your daily running streak and automatically update your Strava activities with progress stats</p>
-          <a href="/auth/strava" class="btn">Connect with Strava</a>
         </div>
         
         <h2>Features</h2>
@@ -216,22 +210,10 @@ app.get('/', async (req, res) => {
         </div>
         
         <h2>How It Works</h2>
-        <p>This app connects to your Strava account to:</p>
-        <ol style="text-align: left; max-width: 600px; margin: 0 auto;">
-          <li>Track your running activities automatically</li>
-          <li>Maintain your daily running streak counter</li>
-          <li>Update your activity descriptions with progress stats</li>
-          <li>Store your data securely in cloud storage</li>
-        </ol>
-        
-        <div style="margin: 40px 0;">
-          <a href="/auth/strava" class="btn">Get Started with Strava</a>
-          <a href="/xapp" class="btn" style="background: #6c757d;">View Demo</a>
-        </div>
+        <p>This app connects to your Strava account to track running activities and maintain your daily running streak counter.</p>
         
         <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #eee;">
           <p>Powered by Strava API • Data stored securely in Upstash Redis</p>
-          <p><a href="/privacy">Privacy Policy</a> • <a href="/terms">Terms of Service</a></p>
         </footer>
       </body>
       </html>
@@ -240,7 +222,6 @@ app.get('/', async (req, res) => {
     res.send(`
       <h1>Strava Run Streak Tracker</h1>
       <p>Welcome to the Strava Run Streak Tracker</p>
-      <p><a href="/auth/strava">Connect with Strava to get started</a></p>
     `);
   }
 });
