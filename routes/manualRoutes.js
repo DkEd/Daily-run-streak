@@ -1,6 +1,6 @@
 const express = require('express');
 const { manuallyUpdateStreak } = require('../controllers/streakController');
-const { manuallyUpdateStats, toggleManualMode } = require('../controllers/statsController');
+const { manuallyUpdateStats } = require('../controllers/statsController');
 const refreshDataMiddleware = require('../middleware/refreshData');
 const { metersToKm } = require('../utils/formatters');
 const router = express.Router();
@@ -45,19 +45,19 @@ router.get('/manual-streak-update', async (req, res) => {
         <br>
         <button type="submit">Update Streak</button>
       </form>
-      <a href="/">Go back</a>
+      <a href="/xapp">Back to App</a>
     `);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
   }
 });
 
 router.post('/manual-streak-update', async (req, res) => {
   try {
     const result = await manuallyUpdateStreak(req.body);
-    res.send(`<h1>Manual Update Result</h1><p>${result.message}</p><pre>${JSON.stringify(result.data, null, 2)}</pre><a href="/streak-details">View Streak</a><br><a href="/">Home</a>`);
+    res.send(`<h1>Manual Update Result</h1><p>${result.message}</p><pre>${JSON.stringify(result.data, null, 2)}</pre><a href="/streak-details">View Streak</a><br><a href="/xapp">Back to App</a>`);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
   }
 });
 
@@ -105,28 +105,29 @@ router.get('/manual-stats-update', async (req, res) => {
         <button type="submit">Update Stats</button>
       </form>
       <p><a href="/toggle-stats-mode">Toggle Auto/Manual Mode</a></p>
-      <a href="/">Go back</a>
+      <a href="/xapp">Back to App</a>
     `);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
   }
 });
 
 router.post('/manual-stats-update', async (req, res) => {
   try {
     const result = await manuallyUpdateStats(req.body);
-    res.send(`<h1>Manual Update Result</h1><p>${result.message}</p><pre>${JSON.stringify(result.data, null, 2)}</pre><a href="/stats">View Stats</a><br><a href="/">Home</a>`);
+    res.send(`<h1>Manual Update Result</h1><p>${result.message}</p><pre>${JSON.stringify(result.data, null, 2)}</pre><a href="/stats">View Stats</a><br><a href="/xapp">Back to App</a>`);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
   }
 });
 
 router.get('/toggle-stats-mode', async (req, res) => {
   try {
+    const { toggleManualMode } = require('../controllers/statsController');
     const result = await toggleManualMode();
-    res.send(`<h1>Stats Mode Changed</h1><p>${result.message}</p><a href="/manual-stats-update">Update Stats</a><br><a href="/">Home</a>`);
+    res.send(`<h1>Stats Mode Changed</h1><p>${result.message}</p><a href="/manual-stats-update">Update Stats</a><br><a href="/xapp">Back to App</a>`);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
   }
 });
 
