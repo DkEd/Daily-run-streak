@@ -84,34 +84,6 @@ app.post('/toggle-streak-mode', async (req, res) => {
   }
 });
 
-// Save both modes
-app.post('/save-modes', async (req, res) => {
-  try {
-    const { statsMode, streakMode } = req.body;
-    
-    // Update stats mode
-    const statsData = await loadStatsData();
-    statsData.manuallyUpdated = statsMode === 'manual';
-    statsData.lastUpdated = new Date().toISOString();
-    await saveStatsData(statsData);
-    
-    // Update streak mode
-    const streakData = await loadStreakData();
-    streakData.manuallyUpdated = streakMode === 'manual';
-    streakData.lastManualUpdate = new Date().toISOString();
-    await saveStreakData(streakData);
-    
-    res.send(`
-      <h1>Modes Saved Successfully ✅</h1>
-      <p><strong>Stats:</strong> ${statsMode === 'manual' ? 'Manual (values preserved)' : 'Auto (updates with runs)'}</p>
-      <p><strong>Streak:</strong> ${streakMode === 'manual' ? 'Manual (values preserved)' : 'Auto (updates with runs)'}</p>
-      <p><a href="/">Back to Home</a></p>
-    `);
-  } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
-  }
-});
-
 // Home route
 app.get('/', async (req, res) => {
   try {
@@ -141,8 +113,6 @@ app.get('/', async (req, res) => {
           .mode-toggle form { margin-left: 10px; }
           button { padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
           button:hover { background: #0056b3; }
-          .form-group { margin: 10px 0; }
-          .form-group label { display: inline-block; width: 150px; }
         </style>
       </head>
       <body>
@@ -151,7 +121,7 @@ app.get('/', async (req, res) => {
         ${authStatus}
         
         <div class="mode-section">
-          <h2>Current Update Modes</h2>
+          <h2>Update Modes</h2>
           <div class="mode-toggle">
             <label><strong>Stats:</strong> ${statsData.manuallyUpdated ? 'Manual (values preserved)' : 'Auto (updates with runs)'}</label>
             <form action="/toggle-stats-mode" method="POST">
@@ -164,27 +134,6 @@ app.get('/', async (req, res) => {
               <button type="submit">Toggle</button>
             </form>
           </div>
-        </div>
-        
-        <div class="mode-section">
-          <h2>Set Both Modes</h2>
-          <form action="/save-modes" method="POST">
-            <div class="form-group">
-              <label for="statsMode">Stats Update Mode:</label>
-              <select id="statsMode" name="statsMode">
-                <option value="auto" ${!statsData.manuallyUpdated ? 'selected' : ''}>Auto (update with runs)</option>
-                <option value="manual" ${statsData.manuallyUpdated ? 'selected' : ''}>Manual (preserve my values)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="streakMode">Streak Update Mode:</label>
-              <select id="streakMode" name="streakMode">
-                <option value="auto" ${!streakData.manuallyUpdated ? 'selected' : ''}>Auto (update with runs)</option>
-                <option value="manual" ${streakData.manuallyUpdated ? 'selected' : ''}>Manual (preserve my values)</option>
-              </select>
-            </div>
-            <button type="submit">Save Both Modes</button>
-          </form>
         </div>
         
         <h2>Quick Actions</h2>
