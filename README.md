@@ -1,4 +1,4 @@
-# Strava Run Streak Updater
+# Strava Run Streak Updater 👍
 
 A Node.js application that tracks your Strava running streak and updates activity descriptions with your stats.
 
