@@ -20,7 +20,7 @@ router.get('/update-streak', async (req, res) => {
       <p><strong>Status:</strong> ${result.message}</p>
       <h2>Current Streak Data:</h2>
       <pre>${JSON.stringify(result, null, 2)}</pre>
-      <p><a href="/streak-details">View Detailed Streak Info</a> | <a href="/">Home</a></p>
+      <p><a href="/streak-details">View Detailed Streak Info</a> | <a href="/xapp">Back to App</a></p>
     `);
   } catch (error) {
     console.error('Error updating streak:', error.message);
@@ -30,13 +30,13 @@ router.get('/update-streak', async (req, res) => {
         <h1>Authentication Required</h1>
         <p>${error.message}</p>
         <p>Please <a href="/auth/strava">re-authenticate with Strava</a>.</p>
-        <a href="/">Home</a>
+        <a href="/xapp">Back to App</a>
       `);
     } else {
       res.status(500).send(`
         <h1>Error</h1>
         <p>${error.message}</p>
-        <a href="/">Home</a>
+        <a href="/xapp">Back to App</a>
       `);
     }
   }
@@ -47,13 +47,13 @@ router.get('/streak-status', async (req, res) => {
     const streak = await getCurrentStreak();
     res.send(`
       <h1>Current Streak: ${streak} days 🔥</h1>
-      <p><a href="/streak-details">View Detailed Streak Info</a> | <a href="/">Home</a></p>
+      <p><a href="/streak-details">View Detailed Streak Info</a> | <a href="/xapp">Back to App</a></p>
     `);
   } catch (error) {
     res.status(500).send(`
       <h1>Error</h1>
       <p>${error.message}</p>
-      <a href="/">Home</a>
+      <a href="/xapp">Back to App</a>
     `);
   }
 });
@@ -82,14 +82,14 @@ router.get('/streak-details', async (req, res) => {
         <a href="/update-streak">Update Streak</a> | 
         <a href="/manual-streak-update">Manual Update</a> | 
         <a href="/reset-streak">Reset Streak</a> | 
-        <a href="/">Home</a>
+        <a href="/xapp">Back to App</a>
       </p>
     `);
   } catch (error) {
     res.status(500).send(`
       <h1>Error</h1>
       <p>${error.message}</p>
-      <a href="/">Home</a>
+      <a href="/xapp">Back to App</a>
     `);
   }
 });
@@ -102,13 +102,13 @@ router.get('/reset-streak', async (req, res) => {
       <p>${result.message}</p>
       <h2>Reset Streak Data:</h2>
       <pre>${JSON.stringify(result.data, null, 2)}</pre>
-      <p><a href="/streak-details">View Streak Details</a> | <a href="/">Home</a></p>
+      <p><a href="/streak-details">View Streak Details</a> | <a href="/xapp">Back to App</a></p>
     `);
   } catch (error) {
     res.status(500).send(`
       <h1>Error</h1>
       <p>${error.message}</p>
-      <a href="/">Home</a>
+      <a href="/xapp">Back to App</a>
     `);
   }
 });
