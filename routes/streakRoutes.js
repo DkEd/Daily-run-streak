@@ -2,13 +2,14 @@ const express = require('express');
 const stravaAuth = require('../services/stravaAuth');
 const { updateRunStreak, getCurrentStreak, getAllStreakData, resetStreak } = require('../controllers/streakController');
 const refreshDataMiddleware = require('../middleware/refreshData');
+const { requireAuth } = require('../middleware/authCheck');
 const { metersToKm, formatTime } = require('../utils/formatters');
 const router = express.Router();
 
 // Apply middleware to all streak routes
 router.use(refreshDataMiddleware);
 
-router.get('/update-streak', async (req, res) => {
+router.get('/update-streak', requireAuth, async (req, res) => {
   try {
     if (!await stravaAuth.isAuthenticated()) {
       return res.send('<h1>Not Authenticated</h1><p><a href="/auth/strava">Authenticate with Strava first</a></p>');
@@ -94,7 +95,7 @@ router.get('/streak-details', async (req, res) => {
   }
 });
 
-router.get('/reset-streak', async (req, res) => {
+router.get('/reset-streak', requireAuth, async (req, res) => {
   try {
     const result = await resetStreak();
     res.send(`
