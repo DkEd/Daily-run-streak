@@ -36,28 +36,28 @@ router.get('/stats', async (req, res) => {
       <h2>Raw Data</h2>
       <pre>${JSON.stringify(data, null, 2)}</pre>
       
-      <a href="/">Home</a>
+      <a href="/xapp">Back to App</a>
     `);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
   }
 });
 
 router.get('/reset-monthly-stats', async (req, res) => {
   try {
     const result = await resetMonthlyStats();
-    res.send(`<h1>Monthly Stats Reset</h1><p>${result.message}</p><pre>${JSON.stringify(result.data, null, 2)}</pre><a href="/">Home</a>`);
+    res.send(`<h1>Monthly Stats Reset</h1><p>${result.message}</p><pre>${JSON.stringify(result.data, null, 2)}</pre><a href="/xapp">Back to App</a>`);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
   }
 });
 
 router.get('/reset-yearly-stats', async (req, res) => {
   try {
     const result = await resetYearlyStats();
-    res.send(`<h1>Yearly Stats Reset</h1><p>${result.message}</p><pre>${JSON.stringify(result.data, null, 2)}</pre><a href="/">Home</a>`);
+    res.send(`<h1>Yearly Stats Reset</h1><p>${result.message}</p><pre>${JSON.stringify(result.data, null, 2)}</pre><a href="/xapp">Back to App</a>`);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
   }
 });
 
