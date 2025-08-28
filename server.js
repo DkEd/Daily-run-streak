@@ -62,9 +62,9 @@ app.post('/toggle-stats-mode', async (req, res) => {
     await saveStatsData(statsData);
     
     const message = `Stats are now ${statsData.manuallyUpdated ? 'manually' : 'automatically'} updated`;
-    res.send(`<h1>Stats Mode Changed</h1><p>${message}</p><a href="/">Back to Home</a>`);
+    res.send(`<h1>Stats Mode Changed</h1><p>${message}</p><a href="/xapp">Back to App</a>`);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">App</a>`);
   }
 });
 
@@ -78,14 +78,14 @@ app.post('/toggle-streak-mode', async (req, res) => {
     await saveStreakData(streakData);
     
     const message = `Streak is now ${streakData.manuallyUpdated ? 'manually' : 'automatically'} updated`;
-    res.send(`<h1>Streak Mode Changed</h1><p>${message}</p><a href="/">Back to Home</a>`);
+    res.send(`<h1>Streak Mode Changed</h1><p>${message}</p><a href="/xapp">Back to App</a>`);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">App</a>`);
   }
 });
 
-// Home route
-app.get('/', async (req, res) => {
+// New XApp route (admin interface)
+app.get('/xapp', async (req, res) => {
   try {
     const tokenInfo = await stravaAuth.getTokenInfo();
     const statsData = await loadStatsData();
@@ -104,7 +104,7 @@ app.get('/', async (req, res) => {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Strava Run Streak Updater</title>
+        <title>Strava Run Streak - Admin</title>
         <style>
           body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
           .mode-section { background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0; }
@@ -113,10 +113,18 @@ app.get('/', async (req, res) => {
           .mode-toggle form { margin-left: 10px; }
           button { padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
           button:hover { background: #0056b3; }
+          .nav { background: #333; padding: 10px; margin-bottom: 20px; }
+          .nav a { color: white; margin-right: 15px; text-decoration: none; }
         </style>
       </head>
       <body>
-        <h1>Strava Run Streak Updater</h1>
+        <div class="nav">
+          <a href="/">Home</a>
+          <a href="/xapp">App</a>
+          <a href="/debug">Debug</a>
+        </div>
+        
+        <h1>Strava Run Streak Admin</h1>
         ${redisStatus}
         ${authStatus}
         
@@ -153,11 +161,108 @@ app.get('/', async (req, res) => {
     `);
   } catch (error) {
     res.send(`
-      <h1>Strava Run Streak Updater</h1>
+      <h1>Strava Run Streak Admin</h1>
       <p>Error loading page: ${error.message}</p>
       <p>Visit <a href="/auth/strava">/auth/strava</a> to authenticate with Strava</p>
     `);
   }
+});
+
+// Home route (public landing page)
+app.get('/', async (req, res) => {
+  try {
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Strava Run Streak Tracker</title>
+        <style>
+          body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; text-align: center; }
+          .hero { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 50px 20px; border-radius: 10px; margin-bottom: 30px; }
+          .features { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin: 30px 0; }
+          .feature { background: #f8f9fa; padding: 20px; border-radius: 8px; width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+          .btn { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px; font-weight: bold; }
+          .btn:hover { background: #5a6fd8; }
+          .nav { background: #333; padding: 10px; margin-bottom: 20px; }
+          .nav a { color: white; margin-right: 15px; text-decoration: none; }
+        </style>
+      </head>
+      <body>
+      
+        <div class="hero">
+          <h1>🏃🏻‍♂️ Strava Run Streak Tracker</h1>
+          <p>Track your daily running streak and automatically update your Strava activities with progress stats</p>
+          <a href="/auth/strava" class="btn">Connect with Strava</a>
+        </div>
+        
+        <h2>Features</h2>
+        <div class="features">
+          <div class="feature">
+            <h3>📊 Daily Streak</h3>
+            <p>Track your consecutive days of running</p>
+          </div>
+          <div class="feature">
+            <h3>📈 Progress Stats</h3>
+            <p>Monthly and yearly running statistics</p>
+          </div>
+          <div class="feature">
+            <h3>🔄 Auto Updates</h3>
+            <p>Automatic activity description updates</p>
+          </div>
+          <div class="feature">
+            <h3>☁️ Cloud Sync</h3>
+            <p>Data saved to Redis cloud storage</p>
+          </div>
+        </div>
+        
+        <h2>How It Works</h2>
+        <p>This app connects to your Strava account to:</p>
+        <ol style="text-align: left; max-width: 600px; margin: 0 auto;">
+          <li>Track your running activities automatically</li>
+          <li>Maintain your daily running streak counter</li>
+          <li>Update your activity descriptions with progress stats</li>
+          <li>Store your data securely in cloud storage</li>
+        </ol>
+        
+        <div style="margin: 40px 0;">
+          <a href="/auth/strava" class="btn">Get Started with Strava</a>
+          <a href="/xapp" class="btn" style="background: #6c757d;">View Demo</a>
+        </div>
+        
+        <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #eee;">
+          <p>Powered by Strava API • Data stored securely in Upstash Redis</p>
+          <p><a href="/privacy">Privacy Policy</a> • <a href="/terms">Terms of Service</a></p>
+        </footer>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    res.send(`
+      <h1>Strava Run Streak Tracker</h1>
+      <p>Welcome to the Strava Run Streak Tracker</p>
+      <p><a href="/auth/strava">Connect with Strava to get started</a></p>
+    `);
+  }
+});
+
+// Privacy policy placeholder
+app.get('/privacy', (req, res) => {
+  res.send(`
+    <h1>Privacy Policy</h1>
+    <p>This app only stores your Strava activity data needed to maintain your running streak statistics.</p>
+    <p>We never share your data with third parties and only use it to provide the service.</p>
+    <p><a href="/">Back to Home</a></p>
+  `);
+});
+
+// Terms of service placeholder
+app.get('/terms', (req, res) => {
+  res.send(`
+    <h1>Terms of Service</h1>
+    <p>By using this app, you agree to comply with Strava's API terms of service.</p>
+    <p>This is a personal project for tracking running streaks and not an official Strava product.</p>
+    <p><a href="/">Back to Home</a></p>
+  `);
 });
 
 // Start server
