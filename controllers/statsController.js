@@ -4,6 +4,13 @@ const { formatDate, kmToMeters, metersToKm } = require('../utils/formatters');
 async function updateStatsWithRun(activity) {
   if (activity.type === 'Run') {
     try {
+      console.log('Processing run activity:', {
+        id: activity.id,
+        distance: activity.distance,
+        elevation: activity.total_elevation_gain,
+        date: activity.start_date
+      });
+      
       const stats = await loadStatsData();
       const activityDate = new Date(activity.start_date);
       const now = new Date();
@@ -29,12 +36,30 @@ async function updateStatsWithRun(activity) {
 
       // Only update stats if they're not manually maintained
       if (!stats.manuallyUpdated) {
+        // Get elevation gain from activity (use 0 if not available)
+        const elevationGain = activity.total_elevation_gain || 0;
+        
+        console.log('Updating stats with:', {
+          distance: activity.distance,
+          elevation: elevationGain,
+          monthlyElevationBefore: stats.monthlyElevation,
+          yearlyElevationBefore: stats.yearlyElevation
+        });
+        
+        // Update stats with activity data
         stats.monthlyDistance += activity.distance;
         stats.yearlyDistance += activity.distance;
         stats.monthlyTime += activity.moving_time || activity.elapsed_time || 0;
         stats.yearlyTime += activity.moving_time || activity.elapsed_time || 0;
-        stats.monthlyElevation += activity.total_elevation_gain || 0;
-        stats.yearlyElevation += activity.total_elevation_gain || 0;
+        
+        // FIX: Only add elevation once, not twice
+        stats.monthlyElevation += elevationGain;
+        stats.yearlyElevation += elevationGain;
+        
+        console.log('Stats after update:', {
+          monthlyElevationAfter: stats.monthlyElevation,
+          yearlyElevationAfter: stats.yearlyElevation
+        });
       }
       
       stats.lastUpdated = now.toISOString();
@@ -59,6 +84,9 @@ async function manuallyUpdateStats(updates) {
         // Convert km to meters for distance fields
         if (key.includes('Distance') || key.includes('Goal')) {
           stats[key] = kmToMeters(updates[key]);
+        } else if (key.includes('Elevation')) {
+          // Elevation should stay in meters (no conversion needed)
+          stats[key] = parseFloat(updates[key]) || 0;
         } else {
           stats[key] = parseFloat(updates[key]) || updates[key];
         }
