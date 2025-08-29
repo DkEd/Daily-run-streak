@@ -9,19 +9,37 @@ async function generateDescription(streakData, activityId) {
     
     const stats = await loadStatsData();
     
-    const streakSection = `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-📊 ${metersToKm(streakData.totalDistance)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
+    // Check if streak should be displayed (only if run is from today or yesterday)
+    const activityDate = new Date(activity.start_date);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const isToday = activityDate.toDateString() === today.toDateString();
+    const isYesterday = activityDate.toDateString() === yesterday.toDateString();
+    
+    let streakSection = '';
+    
+    // Only show streak if activity is from today or yesterday
+    if (isToday || isYesterday) {
+      streakSection = `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
+📊 ${metersToKm(streakData.totalDistance)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m`;
+    }
+    
+    const statsSection = `
 Monthly: ${metersToKm(stats.monthlyDistance)}/${metersToKm(stats.monthlyGoal)} km  | ⛰️ ${Math.round(stats.monthlyElevation)} m
 ${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal, 'monthly')}
 Yearly: ${metersToKm(stats.yearlyDistance)}/${metersToKm(stats.yearlyGoal)} km  | ⛰️ ${Math.round(stats.yearlyElevation)} m
 ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal, 'yearly')}
 📷 @DailyRunGuy`;
 
+    const fullDescription = streakSection ? `${streakSection}\n${statsSection}` : statsSection;
+
     if (existingDescription) {
-      return `${streakSection}\n\n${existingDescription}`;
+      return `${fullDescription}\n\n${existingDescription}`;
     }
     
-    return streakSection;
+    return fullDescription;
   } catch (error) {
     console.error('Error generating description:', error.message);
     
