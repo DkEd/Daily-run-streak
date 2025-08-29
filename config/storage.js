@@ -9,19 +9,18 @@ const KEYS = {
 };
 
 // Default structure for initialization
-// In the DEFAULT_DATA object:
 const DEFAULT_DATA = {
   STATS: {
     monthlyDistance: 0,
     yearlyDistance: 0,
     monthlyTime: 0,
     yearlyTime: 0,
-    monthlyElevation: 0,
-    yearlyElevation: 0,
-    monthlyGoal: 250000, // 250 km in meters
-    yearlyGoal: 3250000, // 3250 km in meters
+    monthlyElevation: 0,    // Ensure this is 0
+    yearlyElevation: 0,     // Ensure this is 0
+    monthlyGoal: 250000,    // 250 km in meters
+    yearlyGoal: 3250000,    // 3250 km in meters
     lastUpdated: new Date().toISOString(),
-    manuallyUpdated: false // ← Make sure this is included
+    manuallyUpdated: false
   },
   STREAK: {
     currentStreak: 0,
@@ -32,10 +31,9 @@ const DEFAULT_DATA = {
     totalElevation: 0,
     streakStartDate: new Date().toISOString().split('T')[0],
     lastRunDate: null,
-    manuallyUpdated: false, // ← Make sure this is included
+    manuallyUpdated: false,
     lastManualUpdate: null
   },
-  
   TOKENS: {
     access_token: null,
     refresh_token: null,
