@@ -7,15 +7,19 @@ const { generateDescription } = require('../utils/descriptionGenerator');
 async function updateRunStreak() {
   try {
     const streakData = await loadStreakData();
-    const todayDate = new Date().toDateString();
+    const today = new Date();
+    const todayDate = today.toDateString();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayDate = yesterday.toDateString();
     
     const activities = await stravaApi.getRecentActivities(2);
-    const today = formatDate(new Date());
+    const todayFormatted = formatDate(today);
     
     // Find ALL of today's runs (not just qualifying ones)
     const todaysRuns = activities.filter(activity => 
       activity.type === 'Run' && 
-      formatDate(new Date(activity.start_date)) === today
+      formatDate(new Date(activity.start_date)) === todayFormatted
     );
 
     if (todaysRuns.length === 0) {
@@ -47,16 +51,17 @@ async function updateRunStreak() {
       streakData.totalElevation += longestRun.total_elevation_gain || 0;
     }
 
-    // Set lastRunDate to yesterday
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    streakData.lastRunDate = yesterday.toDateString();
-
+    // FIXED: Check if yesterday was the last run date to continue streak
+    const lastRunDate = streakData.lastRunDate ? new Date(streakData.lastRunDate) : null;
+    const isConsecutiveDay = lastRunDate && lastRunDate.toDateString() === yesterdayDate;
+    
     // Keep the manually set streak count, only update if not manually set
     if (!streakData.manuallyUpdated && isQualifyingRun) {
-      if (streakData.lastRunDate === yesterday.toDateString()) {
+      if (isConsecutiveDay) {
+        // Continue the streak
         streakData.currentStreak += 1;
       } else {
+        // Reset streak to 1 (gap in running days)
         streakData.currentStreak = 1;
         streakData.streakStartDate = todayDate;
       }
@@ -66,6 +71,9 @@ async function updateRunStreak() {
     if (streakData.currentStreak > streakData.longestStreak) {
       streakData.longestStreak = streakData.currentStreak;
     }
+
+    // Set lastRunDate to today (not yesterday)
+    streakData.lastRunDate = todayDate;
 
     // Save updated data
     await saveStreakData(streakData);
@@ -78,8 +86,9 @@ async function updateRunStreak() {
 
     return { 
       message: isQualifyingRun 
-        ? "Streak updated successfully" 
+        ? `Streak ${isConsecutiveDay ? 'continued' : 'started'} successfully` 
         : "Stats updated (run <4500m, streak not updated)",
+      isConsecutiveDay,
       ...streakData
     };
 
@@ -112,6 +121,7 @@ async function manuallyUpdateStreak(updates) {
     streakData.manuallyUpdated = true;
     streakData.lastManualUpdate = new Date().toISOString();
     
+    // Set lastRunDate to yesterday for manual updates
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     streakData.lastRunDate = yesterday.toDateString();
