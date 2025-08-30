@@ -14,7 +14,10 @@ router.get('/update-streak', async (req, res) => {
       return res.send('<h1>Not Authenticated</h1><p><a href="/auth/strava">Authenticate with Strava first</a></p>');
     }
     
-    const result = await updateRunStreak();
+    // Get the most recent activity and pass it to updateRunStreak
+    const activities = await stravaApi.getRecentActivities(1);
+    const result = await updateRunStreak(activities[0] || null);
+    
     res.send(`
       <h1>Streak Update</h1>
       <p><strong>Status:</strong> ${result.message}</p>
