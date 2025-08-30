@@ -11,20 +11,16 @@ async function processActivity(activityId) {
     
     await updateStatsWithRun(activity);
     
-    // Update description for ALL runs, not just qualifying ones
+    // Update description for ALL runs
     if (activity.type === 'Run') {
       const streakData = await loadStreakData();
       const description = await generateDescription(streakData, activityId);
       await stravaApi.updateActivityDescription(activityId, description);
       
-      if (activity.distance >= 4500) {
-        const result = await updateRunStreak();
-        console.log('Processed qualifying activity:', activityId, result.message);
-        return result;
-      } else {
-        console.log('Activity added to stats but not streak:', activityId, activity.type, `${(activity.distance / 1000).toFixed(1)} km`);
-        return { message: "Activity added to stats but not streak (distance <4500m)" };
-      }
+      // Update streak for ALL runs (no distance requirement)
+      const result = await updateRunStreak();
+      console.log('Processed activity:', activityId, activity.type, `${(activity.distance / 1000).toFixed(1)} km`);
+      return result;
     }
     
     return { message: "Not a run activity" };
