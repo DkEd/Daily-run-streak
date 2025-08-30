@@ -1,5 +1,6 @@
 const express = require('express');
 const stravaAuth = require('../services/stravaAuth');
+const stravaApi = require('../services/stravaApi'); // Added this import
 const { updateRunStreak, getCurrentStreak, getAllStreakData, resetStreak } = require('../controllers/streakController');
 const refreshDataMiddleware = require('../middleware/refreshData');
 const { metersToKm, formatTime } = require('../utils/formatters');
