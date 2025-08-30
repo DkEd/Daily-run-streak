@@ -46,15 +46,13 @@ async function updateStatsWithRun(activity) {
           yearlyElevationBefore: stats.yearlyElevation
         });
         
-        // Update stats with activity data
+        // Update stats with activity data - FIXED: Only add elevation once
         stats.monthlyDistance += activity.distance;
         stats.yearlyDistance += activity.distance;
         stats.monthlyTime += activity.moving_time || activity.elapsed_time || 0;
         stats.yearlyTime += activity.moving_time || activity.elapsed_time || 0;
-        
-        // FIX: Only add elevation once, not twice
-        stats.monthlyElevation += elevationGain;
-        stats.yearlyElevation += elevationGain;
+        stats.monthlyElevation += elevationGain; // Only add once
+        stats.yearlyElevation += elevationGain;  // Only add once
         
         console.log('Stats after update:', {
           monthlyElevationAfter: stats.monthlyElevation,
