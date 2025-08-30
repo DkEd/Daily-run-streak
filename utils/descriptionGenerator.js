@@ -12,7 +12,6 @@ async function generateDescription(streakData, activityId) {
     // Always show streak section for runs
     const streakSection = `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
 📊 ${metersToKm(streakData.totalDistance)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m`;
-    
     const statsSection = `
 Monthly: ${metersToKm(stats.monthlyDistance)}/${metersToKm(stats.monthlyGoal)} km  | ⛰️ ${Math.round(stats.monthlyElevation)} m
 ${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal, 'monthly')}
