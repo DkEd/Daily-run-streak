@@ -6,7 +6,7 @@ const webhookRoutes = require('./routes/webhookRoutes');
 const manualRoutes = require('./routes/manualRoutes');
 const debugRoutes = require('./routes/debugRoutes');
 const stravaAuth = require('./services/stravaAuth');
-const { initializeData, healthCheck, loadStatsData, loadStreakData, saveStatsData, saveStreakData } = require('./config/storage');
+const { initializeData, healthCheck, loadStatsData, loadStreakData, saveStatsData, saveStreakData, getLastActivity } = require('./config/storage');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -86,6 +86,7 @@ app.get('/xapp', async (req, res) => {
     const tokenInfo = await stravaAuth.getTokenInfo();
     const statsData = await loadStatsData();
     const streakData = await loadStreakData();
+    const lastActivity = await getLastActivity();
     const redisHealth = await healthCheck();
     
     const authStatus = tokenInfo.hasTokens 
@@ -110,6 +111,16 @@ app.get('/xapp', async (req, res) => {
            <span class="status-dot"></span>
            Redis: Disconnected
            <a href="/redis-status" class="btn btn-sm btn-outline">Check</a>
+         </div>`;
+
+    const lastActivityInfo = lastActivity.date 
+      ? `<div class="status-item success">
+           <span class="status-dot"></span>
+           Last Activity: ${new Date(lastActivity.date).toLocaleString()} (${lastActivity.type})
+         </div>`
+      : `<div class="status-item">
+           <span class="status-dot"></span>
+           Last Activity: None recorded
          </div>`;
 
     res.send(`
@@ -205,6 +216,7 @@ app.get('/xapp', async (req, res) => {
             <div class="status-grid">
               ${authStatus}
               ${redisStatus}
+              ${lastActivityInfo}
             </div>
           </div>
           
