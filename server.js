@@ -303,11 +303,11 @@ app.get('/xapp', async (req, res) => {
                   <p>Running statistics</p>
                 </a>
                 
-                <a href="/update-strava-activities" class="action-card">
-                  <i class="fas fa-sync"></i>
-                  <h3>Update Strava</h3>
-                  <p>Refresh activity descriptions</p>
-                </a>
+                <a href="/update-strava-activity" class="action-card">
+  <i class="fas fa-sync"></i>
+  <h3>Update Strava</h3>
+  <p>Refresh latest activity</p>
+</a>
                 
                 <a href="/setup-webhook" class="action-card">
                   <i class="fas fa-plug"></i>
@@ -335,9 +335,9 @@ app.get('/xapp', async (req, res) => {
                 <a href="/manual-stats-update" class="btn btn-outline">
                   <i class="fas fa-sliders-h"></i> Manual Stats Update
                 </a>
-                <a href="/update-strava-activities" class="btn btn-outline">
-                  <i class="fas fa-sync"></i> Update Strava Activities
-                </a>
+                <a href="/update-strava-activity" class="btn btn-outline">
+  <i class="fas fa-sync"></i> Update Latest Activity
+</a>
                 <a href="/health" class="btn btn-outline">
                   <i class="fas fa-heartbeat"></i> System Health
                 </a>
