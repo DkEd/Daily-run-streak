@@ -5,7 +5,8 @@ const KEYS = {
   STATS: 'app:stats',
   STREAK: 'app:streak',
   TOKENS: 'app:tokens',
-  WEBHOOK_CONFIG: 'app:webhook:config'
+  WEBHOOK_CONFIG: 'app:webhook:config',
+  LAST_ACTIVITY: 'app:last_activity'
 };
 
 // Default structure for initialization
@@ -15,10 +16,10 @@ const DEFAULT_DATA = {
     yearlyDistance: 0,
     monthlyTime: 0,
     yearlyTime: 0,
-    monthlyElevation: 0,    // Ensure this is 0
-    yearlyElevation: 0,     // Ensure this is 0
-    monthlyGoal: 250000,    // 250 km in meters
-    yearlyGoal: 3250000,    // 3250 km in meters
+    monthlyElevation: 0,
+    yearlyElevation: 0,
+    monthlyGoal: 250000,
+    yearlyGoal: 3250000,
     lastUpdated: new Date().toISOString(),
     manuallyUpdated: false
   },
@@ -43,6 +44,12 @@ const DEFAULT_DATA = {
   WEBHOOK_CONFIG: {
     verifyToken: process.env.WEBHOOK_VERIFY_TOKEN || 'DailyRunGuy_Verify_12345',
     secret: process.env.WEBHOOK_SECRET || 'your-webhook-secret-here'
+  },
+  LAST_ACTIVITY: {
+    id: null,
+    date: null,
+    type: null,
+    distance: 0
   }
 };
 
@@ -51,7 +58,8 @@ let memoryFallback = {
   [KEYS.STATS]: { ...DEFAULT_DATA.STATS },
   [KEYS.STREAK]: { ...DEFAULT_DATA.STREAK },
   [KEYS.TOKENS]: { ...DEFAULT_DATA.TOKENS },
-  [KEYS.WEBHOOK_CONFIG]: { ...DEFAULT_DATA.WEBHOOK_CONFIG }
+  [KEYS.WEBHOOK_CONFIG]: { ...DEFAULT_DATA.WEBHOOK_CONFIG },
+  [KEYS.LAST_ACTIVITY]: { ...DEFAULT_DATA.LAST_ACTIVITY }
 };
 
 async function initializeData() {
@@ -69,6 +77,7 @@ async function initializeData() {
       const streakExist = await redisClient.exists(KEYS.STREAK);
       const tokensExist = await redisClient.exists(KEYS.TOKENS);
       const webhookExist = await redisClient.exists(KEYS.WEBHOOK_CONFIG);
+      const lastActivityExist = await redisClient.exists(KEYS.LAST_ACTIVITY);
 
       if (!statsExist) {
         console.log('Initializing stats data...');
@@ -88,6 +97,11 @@ async function initializeData() {
       if (!webhookExist) {
         console.log('Initializing webhook config...');
         await redisClient.set(KEYS.WEBHOOK_CONFIG, DEFAULT_DATA.WEBHOOK_CONFIG);
+      }
+
+      if (!lastActivityExist) {
+        console.log('Initializing last activity data...');
+        await redisClient.set(KEYS.LAST_ACTIVITY, DEFAULT_DATA.LAST_ACTIVITY);
       }
 
       console.log('Data initialization completed in Redis');
@@ -238,6 +252,38 @@ async function saveWebhookConfig(config) {
   }
 }
 
+// Last activity functions
+async function saveLastActivity(activity) {
+  try {
+    const redisAvailable = await redisClient.healthCheck();
+    if (redisAvailable) {
+      await redisClient.set(KEYS.LAST_ACTIVITY, activity);
+    } else {
+      memoryFallback[KEYS.LAST_ACTIVITY] = activity;
+    }
+    return true;
+  } catch (error) {
+    console.error('Error saving last activity:', error.message);
+    memoryFallback[KEYS.LAST_ACTIVITY] = activity;
+    return false;
+  }
+}
+
+async function getLastActivity() {
+  try {
+    const redisAvailable = await redisClient.healthCheck();
+    if (redisAvailable) {
+      const data = await redisClient.get(KEYS.LAST_ACTIVITY);
+      return data || DEFAULT_DATA.LAST_ACTIVITY;
+    } else {
+      return memoryFallback[KEYS.LAST_ACTIVITY];
+    }
+  } catch (error) {
+    console.error('Error loading last activity:', error.message);
+    return memoryFallback[KEYS.LAST_ACTIVITY];
+  }
+}
+
 // Health check
 async function healthCheck() {
   return await redisClient.healthCheck();
@@ -254,5 +300,7 @@ module.exports = {
   getStravaTokens,
   getWebhookConfig,
   saveWebhookConfig,
+  saveLastActivity,
+  getLastActivity,
   healthCheck
 };
