@@ -3,6 +3,9 @@ const { manuallyUpdateStreak } = require('../controllers/streakController');
 const { manuallyUpdateStats } = require('../controllers/statsController');
 const refreshDataMiddleware = require('../middleware/refreshData');
 const { metersToKm } = require('../utils/formatters');
+const stravaApi = require('../services/stravaApi'); // Add this import
+const { generateDescription } = require('../utils/descriptionGenerator'); // Add this import
+const { loadStreakData } = require('../config/storage'); // Add this import
 const router = express.Router();
 
 // Apply middleware to manual routes
@@ -55,6 +58,20 @@ router.get('/manual-streak-update', async (req, res) => {
 router.post('/manual-streak-update', async (req, res) => {
   try {
     const result = await manuallyUpdateStreak(req.body);
+    
+    // After manual update, update the most recent Strava activity
+    try {
+      const activities = await stravaApi.getRecentActivities(1);
+      if (activities.length > 0 && activities[0].type === 'Run') {
+        const streakData = await loadStreakData();
+        const description = await generateDescription(streakData, activities[0].id);
+        await stravaApi.updateActivityDescription(activities[0].id, description);
+        console.log('Updated Strava activity description after manual update');
+      }
+    } catch (stravaError) {
+      console.error('Error updating Strava activity after manual update:', stravaError.message);
+    }
+    
     res.send(`<h1>Manual Update Result</h1><p>${result.message}</p><pre>${JSON.stringify(result.data, null, 2)}</pre><a href="/streak-details">View Streak</a><br><a href="/xapp">App</a>`);
   } catch (error) {
     res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">App</a>`);
@@ -115,6 +132,21 @@ router.get('/manual-stats-update', async (req, res) => {
 router.post('/manual-stats-update', async (req, res) => {
   try {
     const result = await manuallyUpdateStats(req.body);
+    
+    // After stats update, update the most recent Strava activity
+    try {
+      const activities = await stravaApi.getRecentActivities(1);
+      if (activities.length > 0 && activities[0].type === 'Run') {
+        const { loadStreakData } = require('../config/storage');
+        const streakData = await loadStreakData();
+        const description = await generateDescription(streakData, activities[0].id);
+        await stravaApi.updateActivityDescription(activities[0].id, description);
+        console.log('Updated Strava activity description after stats update');
+      }
+    } catch (stravaError) {
+      console.error('Error updating Strava activity after stats update:', stravaError.message);
+    }
+    
     res.send(`<h1>Manual Update Result</h1><p>${result.message}</p><pre>${JSON.stringify(result.data, null, 2)}</pre><a href="/stats">View Stats</a><br><a href="/xapp">App</a>`);
   } catch (error) {
     res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">App</a>`);
