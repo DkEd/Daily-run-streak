@@ -9,22 +9,9 @@ async function generateDescription(streakData, activityId) {
     
     const stats = await loadStatsData();
     
-    // Check if streak should be displayed (only if run is from today or yesterday)
-    const activityDate = new Date(activity.start_date);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    const isToday = activityDate.toDateString() === today.toDateString();
-    const isYesterday = activityDate.toDateString() === yesterday.toDateString();
-    
-    let streakSection = '';
-    
-    // Only show streak if activity is from today or yesterday
-    if (isToday || isYesterday) {
-      streakSection = `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
+    // Always show streak section for runs
+    const streakSection = `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
 📊 ${metersToKm(streakData.totalDistance)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m`;
-    }
     
     const statsSection = `
 Monthly: ${metersToKm(stats.monthlyDistance)}/${metersToKm(stats.monthlyGoal)} km  | ⛰️ ${Math.round(stats.monthlyElevation)} m
@@ -33,7 +20,7 @@ Yearly: ${metersToKm(stats.yearlyDistance)}/${metersToKm(stats.yearlyGoal)} km  
 ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal, 'yearly')}
 📷 @DailyRunGuy`;
 
-    const fullDescription = streakSection ? `${streakSection}\n${statsSection}` : statsSection;
+    const fullDescription = `${streakSection}\n${statsSection}`;
 
     if (existingDescription) {
       return `${fullDescription}\n\n${existingDescription}`;
@@ -43,20 +30,10 @@ ${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal, 'yearly')}
   } catch (error) {
     console.error('Error generating description:', error.message);
     
-    // Fallback description if stats can't be loaded
-    const stats = await loadStatsData().catch(() => null);
-    
-    if (stats) {
-      return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-📊 ${metersToKm(streakData.totalDistance)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
-Monthly: ${metersToKm(stats.monthlyDistance)}/${metersToKm(stats.monthlyGoal)} km
-Yearly: ${metersToKm(stats.yearlyDistance)}/${metersToKm(stats.yearlyGoal)} km
-📷 @DailyRunGuy`;
-    } else {
-      return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
+    // Fallback description
+    return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
 📊 ${metersToKm(streakData.totalDistance)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
 📷 @DailyRunGuy`;
-    }
   }
 }
 
