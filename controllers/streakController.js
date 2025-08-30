@@ -1,70 +1,64 @@
-const { loadStreakData, saveStreakData } = require('../config/storage');
+const { loadStreakData, saveStreakData, saveLastActivity, getLastActivity } = require('../config/storage');
 const stravaApi = require('../services/stravaApi');
 const { formatDate } = require('../utils/formatters');
 const { updateStatsWithRun } = require('./statsController');
 const { generateDescription } = require('../utils/descriptionGenerator');
 
-async function updateRunStreak() {
+async function updateRunStreak(activity = null) {
   try {
     const streakData = await loadStreakData();
     const today = new Date();
     const todayDate = today.toDateString();
+    
+    // Get the last activity date from storage
+    const lastActivity = await getLastActivity();
+    const lastRunDate = lastActivity.date ? new Date(lastActivity.date).toDateString() : null;
+    
+    // If an activity is provided, use its date
+    const currentActivityDate = activity ? new Date(activity.start_date).toDateString() : todayDate;
+    
+    // Check if we already processed today's run
+    if (lastRunDate === currentActivityDate && activity && activity.type === 'Run') {
+      return { message: "Already processed a run today", ...streakData };
+    }
+    
+    // Get activities from the last 2 days to check for consecutive runs
+    const activities = await stravaApi.getRecentActivities(2);
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayDate = yesterday.toDateString();
     
-    // Get activities from the last 2 days to check for consecutive runs
-    const activities = await stravaApi.getRecentActivities(2);
-    const todayFormatted = formatDate(today);
     const yesterdayFormatted = formatDate(yesterday);
-    
-    // Find ALL runs from today and yesterday
-    const todaysRuns = activities.filter(activity => 
-      activity.type === 'Run' && 
-      formatDate(new Date(activity.start_date)) === todayFormatted
+    const yesterdaysRuns = activities.filter(a => 
+      a.type === 'Run' && formatDate(new Date(a.start_date)) === yesterdayFormatted
     );
 
-    const yesterdaysRuns = activities.filter(activity => 
-      activity.type === 'Run' && 
-      formatDate(new Date(activity.start_date)) === yesterdayFormatted
-    );
-
-    if (todaysRuns.length === 0) {
-      return { message: "No runs today", ...streakData };
-    }
-    
-    // Update stats with ALL runs from today
-    for (const run of todaysRuns) {
-      await updateStatsWithRun(run);
-    }
-
-    // REMOVED: "Already processed today" check - allow multiple updates
-
-    // ALL runs count toward totals (not just qualifying ones)
-    if (!streakData.manuallyUpdated) {
-      for (const run of todaysRuns) {
+    if (activity && activity.type === 'Run') {
+      await updateStatsWithRun(activity);
+      
+      if (!streakData.manuallyUpdated) {
         streakData.totalRuns += 1;
-        streakData.totalDistance += run.distance;
-        streakData.totalTime += run.moving_time || run.elapsed_time || 0;
-        streakData.totalElevation += run.total_elevation_gain || 0;
+        streakData.totalDistance += activity.distance;
+        streakData.totalTime += activity.moving_time || activity.elapsed_time || 0;
+        streakData.totalElevation += activity.total_elevation_gain || 0;
       }
     }
 
-    // Check for consecutive days - ANY run yesterday means consecutive
+    // Check for consecutive days using last activity date
     const hadRunYesterday = yesterdaysRuns.length > 0;
-    const lastRunDate = streakData.lastRunDate ? new Date(streakData.lastRunDate) : null;
+    const lastRunDateObj = lastRunDate ? new Date(lastRunDate) : null;
     
     // Calculate days since last run
     let daysSinceLastRun = Infinity;
-    if (lastRunDate) {
-      const timeDiff = today.getTime() - lastRunDate.getTime();
+    if (lastRunDateObj) {
+      const timeDiff = today.getTime() - lastRunDateObj.getTime();
       daysSinceLastRun = Math.floor(timeDiff / (1000 * 3600 * 24));
     }
 
-    // Update streak logic - ALL runs count for consecutive days
+    // Update streak logic
     if (!streakData.manuallyUpdated) {
       if (hadRunYesterday || daysSinceLastRun === 1) {
-        // Continue the streak (ran yesterday or exactly 1 day gap)
+        // Continue the streak
         streakData.currentStreak += 1;
       } else if (daysSinceLastRun > 1) {
         // Gap in running - reset streak to 1
@@ -75,7 +69,6 @@ async function updateRunStreak() {
         streakData.currentStreak = 1;
         streakData.streakStartDate = todayDate;
       }
-      // If daysSinceLastRun === 0, it's same day (already handled above)
     }
 
     // Update longest streak if needed
@@ -83,22 +76,16 @@ async function updateRunStreak() {
       streakData.longestStreak = streakData.currentStreak;
     }
 
-    // Set lastRunDate to today (using activity date/time, not processing time)
-    streakData.lastRunDate = todayDate;
+    // Set lastRunDate to the current activity date
+    streakData.lastRunDate = currentActivityDate;
 
     // Save updated data
     await saveStreakData(streakData);
 
-    // Generate description for ALL runs
-    for (const run of todaysRuns) {
-      const description = await generateDescription(streakData, run.id);
-      await stravaApi.updateActivityDescription(run.id, description);
-    }
-
     return { 
-      message: `Streak updated successfully (${todaysRuns.length} runs today)`,
-      runsToday: todaysRuns.length,
+      message: `Streak updated successfully`,
       hadRunYesterday: hadRunYesterday,
+      daysSinceLastRun: daysSinceLastRun,
       ...streakData
     };
 
