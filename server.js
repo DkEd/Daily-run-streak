@@ -1,3 +1,85 @@
+const express = require('express');
+const authRoutes = require('./routes/authRoutes');
+const streakRoutes = require('./routes/streakRoutes');
+const statsRoutes = require('./routes/statsRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
+const manualRoutes = require('./routes/manualRoutes');
+const debugRoutes = require('./routes/debugRoutes');
+const stravaAuth = require('./services/stravaAuth');
+const { initializeData, healthCheck, loadStatsData, loadStreakData, saveStatsData, saveStreakData } = require('./config/storage');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+// Initialize data on startup
+initializeData().then(() => {
+  console.log('Data initialization completed');
+}).catch((error) => {
+  console.error('Data initialization failed:', error.message);
+  console.log('Continuing with in-memory storage...');
+});
+
+// Routes
+app.use('/', authRoutes);
+app.use('/', streakRoutes);
+app.use('/', statsRoutes);
+app.use('/', webhookRoutes);
+app.use('/', manualRoutes);
+app.use('/', debugRoutes);
+
+// Health check endpoint
+app.get('/health', async (req, res) => {
+  const redisHealth = await healthCheck();
+  const status = redisHealth ? 200 : 500;
+  res.status(status).json({
+    status: redisHealth ? 'OK' : 'Error',
+    redis: redisHealth ? 'Connected to Upstash' : 'Disconnected',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Redis connection status endpoint
+app.get('/redis-status', async (req, res) => {
+  const redisHealth = await healthCheck();
+  if (redisHealth) {
+    res.send('<h1>Redis Status: Connected to Upstash ✅</h1><a href="/xapp">Back to App</a>');
+  } else {
+    res.status(500).send('<h1>Redis Status: Disconnected ❌</h1><p>Check your Redis configuration</p><a href="/xapp">Back to App</a>');
+  }
+});
+
+// Toggle stats manual mode
+app.post('/toggle-stats-mode', async (req, res) => {
+  try {
+    const statsData = await loadStatsData();
+    statsData.manuallyUpdated = !statsData.manuallyUpdated;
+    statsData.lastUpdated = new Date().toISOString();
+    
+    await saveStatsData(statsData);
+    res.redirect('/xapp');
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
+  }
+});
+
+// Toggle streak manual mode  
+app.post('/toggle-streak-mode', async (req, res) => {
+  try {
+    const streakData = await loadStreakData();
+    streakData.manuallyUpdated = !streakData.manuallyUpdated;
+    streakData.lastManualUpdate = new Date().toISOString();
+    
+    await saveStreakData(streakData);
+    res.redirect('/xapp');
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
+  }
+});
+
 // Admin App Interface
 app.get('/xapp', async (req, res) => {
   try {
@@ -100,7 +182,7 @@ app.get('/xapp', async (req, res) => {
           input:checked + .slider:before { transform: translateX(26px); }
           
           .actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
-          .action-card { background: var(--light); padding: 1.25rem; border-radius: 8px; text-align: center; transition: transform 0.2s; border: none; cursor: pointer; width: 100%; font-family: inherit; }
+          .action-card { background: var(--light); padding: 1.25rem; border-radius: 8px; text-align: center; transition: transform 0.2s; }
           .action-card:hover { transform: translateY(-2px); }
           .action-card i { font-size: 1.5rem; margin-bottom: 0.75rem; color: var(--primary); }
           .action-card h3 { font-size: 0.875rem; margin-bottom: 0.5rem; }
@@ -109,8 +191,6 @@ app.get('/xapp', async (req, res) => {
           .stat-item { text-align: center; padding: 1rem; background: var(--light); border-radius: 8px; }
           .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
           .stat-label { font-size: 0.875rem; color: var(--gray); }
-          
-          .message { background: #d4edda; color: #155724; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #c3e6cb; }
           
           @media (max-width: 768px) {
             .grid { grid-template-columns: 1fr; }
@@ -122,11 +202,6 @@ app.get('/xapp', async (req, res) => {
         <div class="container">
           <div class="header">
             <h1><i class="fas fa-running"></i> Strava Run Streak Admin</h1>
-            ${req.query.message ? `
-            <div class="message">
-              <i class="fas fa-check-circle"></i> ${decodeURIComponent(req.query.message)}
-            </div>
-            ` : ''}
             <div class="status-grid">
               ${authStatus}
               ${redisStatus}
@@ -210,14 +285,6 @@ app.get('/xapp', async (req, res) => {
                   <p>Process today's runs</p>
                 </a>
                 
-                <form action="/force-update-last-run" method="POST" style="display: contents;">
-                  <button type="submit" class="action-card">
-                    <i class="fas fa-redo-alt"></i>
-                    <h3>Force Update</h3>
-                    <p>Reset last run date</p>
-                  </button>
-                </form>
-                
                 <a href="/stats" class="action-card">
                   <i class="fas fa-chart-line"></i>
                   <h3>View Stats</h3>
@@ -250,9 +317,6 @@ app.get('/xapp', async (req, res) => {
                 <a href="/manual-stats-update" class="btn btn-outline">
                   <i class="fas fa-sliders-h"></i> Manual Stats Update
                 </a>
-                <a href="/force-update-last-run" class="btn btn-outline">
-                  <i class="fas fa-redo"></i> Force Reset Last Run
-                </a>
                 <a href="/health" class="btn btn-outline">
                   <i class="fas fa-heartbeat"></i> System Health
                 </a>
@@ -274,3 +338,103 @@ app.get('/xapp', async (req, res) => {
     `);
   }
 });
+
+// Home route (public landing page) - NO NAVIGATION, NO LINKS
+app.get('/', async (req, res) => {
+  try {
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Strava Run Streak Tracker</title>
+        <style>
+          body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; text-align: center; }
+          .hero { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 50px 20px; border-radius: 10px; margin-bottom: 30px; }
+          .features { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin: 30px 0; }
+          .feature { background: #f8f9fa; padding: 20px; border-radius: 8px; width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        </style>
+      </head>
+      <body>
+        <div class="hero">
+          <h1>🏃🏻‍♂️ Strava Run Streak Tracker</h1>
+          <p>Track your daily running streak and automatically update your Strava activities with progress stats</p>
+        </div>
+        
+        <h2>Features</h2>
+        <div class="features">
+          <div class="feature">
+            <h3>📊 Daily Streak</h3>
+            <p>Track your consecutive days of running</p>
+          </div>
+          <div class="feature">
+            <h3>📈 Progress Stats</h3>
+            <p>Monthly and yearly running statistics</p>
+          </div>
+          <div class="feature">
+            <h3>🔄 Auto Updates</h3>
+            <p>Automatic activity description updates</p>
+          </div>
+          <div class="feature">
+            <h3>☁️ Cloud Sync</h3>
+            <p>Data saved to Redis cloud storage</p>
+          </div>
+        </div>
+        
+        <h2>How It Works</h2>
+        <p>This app connects to your Strava account to track running activities and maintain your daily running streak counter.</p>
+        
+        <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #eee;">
+          <p>Powered by Strava API • Data stored securely in Upstash Redis</p>
+        </footer>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    res.send(`
+      <h1>Strava Run Streak Tracker</h1>
+      <p>Welcome to the Strava Run Streak Tracker</p>
+    `);
+  }
+});
+
+// Privacy policy placeholder
+app.get('/privacy', (req, res) => {
+  res.send(`
+    <h1>Privacy Policy</h1>
+    <p>This app only stores your Strava activity data needed to maintain your running streak statistics.</p>
+    <p>We never share your data with third parties and only use it to provide the service.</p>
+    <p><a href="/">Back to Home</a></p>
+  `);
+});
+
+// Terms of service placeholder
+app.get('/terms', (req, res) => {
+  res.send(`
+    <h1>Terms of Service</h1>
+    <p>By using this app, you agree to comply with Strava's API terms of service.</p>
+    <p>This is a personal project for tracking running streaks and not an official Strava product.</p>
+    <p><a href="/">Back to Home</a></p>
+  `);
+});
+
+// Start server
+app.listen(PORT, async () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Webhook endpoint: http://localhost:${PORT}/webhook`);
+  
+  // Test Redis connection
+  const redisHealthy = await healthCheck();
+  if (redisHealthy) {
+    console.log('Upstash Redis connection established successfully');
+  } else {
+    console.log('Upstash Redis connection failed - check your REDIS_URL configuration');
+  }
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('Shutting down gracefully...');
+  process.exit(0);
+});
+
+module.exports = app;
