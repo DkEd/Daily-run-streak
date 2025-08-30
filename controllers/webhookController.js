@@ -2,28 +2,54 @@ const crypto = require('crypto');
 const stravaApi = require('../services/stravaApi');
 const { updateStatsWithRun } = require('./statsController');
 const { updateRunStreak } = require('./streakController');
-const { loadStreakData } = require('../config/storage');
+const { loadStreakData, saveLastActivity, getLastActivity } = require('../config/storage');
 const { generateDescription } = require('../utils/descriptionGenerator');
 
 async function processActivity(activityId) {
   try {
     const activity = await stravaApi.getActivity(activityId);
     
-    await updateStatsWithRun(activity);
+    // Only process if it's the most recent activity
+    const lastActivity = await getLastActivity();
+    const activityDate = new Date(activity.start_date);
+    const lastActivityDate = lastActivity.date ? new Date(lastActivity.date) : null;
     
-    // Update description for ALL runs
-    if (activity.type === 'Run') {
-      const streakData = await loadStreakData();
-      const description = await generateDescription(streakData, activityId);
-      await stravaApi.updateActivityDescription(activityId, description);
+    if (!lastActivityDate || activityDate > lastActivityDate) {
+      // This is the newest activity, process it
+      await updateStatsWithRun(activity);
       
-      // Update streak for ALL runs (no distance requirement)
-      const result = await updateRunStreak();
-      console.log('Processed activity:', activityId, activity.type, `${(activity.distance / 1000).toFixed(1)} km`);
-      return result;
+      if (activity.type === 'Run') {
+        const streakData = await loadStreakData();
+        const description = await generateDescription(streakData, activityId);
+        await stravaApi.updateActivityDescription(activityId, description);
+        
+        // Update streak for this run
+        const result = await updateRunStreak(activity);
+        
+        // Save this as the last processed activity
+        await saveLastActivity({
+          id: activityId,
+          date: activity.start_date,
+          type: activity.type,
+          distance: activity.distance
+        });
+        
+        console.log('Processed NEW activity:', activityId, activity.type, `${(activity.distance / 1000).toFixed(1)} km`);
+        return result;
+      }
+      
+      // Save non-run activities too for date tracking
+      await saveLastActivity({
+        id: activityId,
+        date: activity.start_date,
+        type: activity.type,
+        distance: activity.distance
+      });
+    } else {
+      console.log('Skipping older activity:', activityId, 'Last activity was newer');
     }
     
-    return { message: "Not a run activity" };
+    return { message: "Activity processed or skipped" };
   } catch (error) {
     console.error('Error processing activity:', error.message);
     throw error;
