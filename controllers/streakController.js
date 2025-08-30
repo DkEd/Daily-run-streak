@@ -38,10 +38,7 @@ async function updateRunStreak() {
       await updateStatsWithRun(run);
     }
 
-    // Check if we already processed today
-    if (streakData.lastRunDate === todayDate) {
-      return { message: "Already processed today's run", ...streakData };
-    }
+    // REMOVED: "Already processed today" check - allow multiple updates
 
     // ALL runs count toward totals (not just qualifying ones)
     if (!streakData.manuallyUpdated) {
@@ -86,7 +83,7 @@ async function updateRunStreak() {
       streakData.longestStreak = streakData.currentStreak;
     }
 
-    // Set lastRunDate to today
+    // Set lastRunDate to today (using activity date/time, not processing time)
     streakData.lastRunDate = todayDate;
 
     // Save updated data
