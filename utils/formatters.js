@@ -51,21 +51,17 @@ function formatElevation(meters, unit = 'm') {
   }
 }
 
-// In utils/formatters.js - update generateProgressBars function
 function generateProgressBars(distance, goal, type = 'monthly', segments = 10) {
   if (!goal || goal <= 0) return '⚪️'.repeat(segments);
   
   const completed = Math.min(Math.floor((distance / goal) * segments), segments);
   const remaining = segments - completed;
   
-  let bars = '';
   if (type === 'monthly') {
-    bars = '🔵'.repeat(completed) + '⚪️'.repeat(remaining);
+    return '🔵'.repeat(completed) + '⚪️'.repeat(remaining);
   } else {
-    bars = '🟢'.repeat(completed) + '⚪️'.repeat(remaining);
+    return '🟢'.repeat(completed) + '⚪️'.repeat(remaining);
   }
-  
-  return bars;
 }
 
 function cleanExistingDescription(description) {
