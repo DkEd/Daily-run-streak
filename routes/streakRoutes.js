@@ -1,9 +1,11 @@
 const express = require('express');
 const stravaAuth = require('../services/stravaAuth');
-const stravaApi = require('../services/stravaApi'); // Added this import
+const stravaApi = require('../services/stravaApi');
 const { updateRunStreak, getCurrentStreak, getAllStreakData, resetStreak } = require('../controllers/streakController');
 const refreshDataMiddleware = require('../middleware/refreshData');
 const { metersToKm, formatTime } = require('../utils/formatters');
+const { generateDescription } = require('../utils/descriptionGenerator');
+const { loadStreakData } = require('../config/storage');
 const router = express.Router();
 
 // Apply middleware to all streak routes
@@ -43,6 +45,42 @@ router.get('/update-streak', async (req, res) => {
         <a href="/xapp">Back to App</a>
       `);
     }
+  }
+});
+
+// Add this new route to force update Strava activities
+router.get('/update-strava-activities', async (req, res) => {
+  try {
+    if (!await stravaAuth.isAuthenticated()) {
+      return res.send('<h1>Not Authenticated</h1><p><a href="/auth/strava">Authenticate with Strava first</a></p>');
+    }
+    
+    // Get recent run activities
+    const activities = await stravaApi.getRecentActivities(10);
+    const runActivities = activities.filter(activity => activity.type === 'Run');
+    
+    let updatedCount = 0;
+    const streakData = await loadStreakData();
+    
+    // Update each run activity
+    for (const activity of runActivities) {
+      try {
+        const description = await generateDescription(streakData, activity.id);
+        await stravaApi.updateActivityDescription(activity.id, description);
+        updatedCount++;
+        console.log('Updated Strava activity:', activity.id);
+      } catch (error) {
+        console.error('Error updating activity', activity.id, error.message);
+      }
+    }
+    
+    res.send(`
+      <h1>Strava Activities Updated</h1>
+      <p>Successfully updated ${updatedCount} run activities on Strava.</p>
+      <p><a href="/xapp">Back to App</a></p>
+    `);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
   }
 });
 
