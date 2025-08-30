@@ -33,14 +33,18 @@ async function updateRunStreak(activity = null) {
       a.type === 'Run' && formatDate(new Date(a.start_date)) === yesterdayFormatted
     );
 
+    let newRunProcessed = false;
+
     if (activity && activity.type === 'Run') {
       await updateStatsWithRun(activity);
       
-      if (!streakData.manuallyUpdated) {
+      // Only increase totals if this is a new run that hasn't been processed
+      if (!streakData.manuallyUpdated && currentActivityDate !== lastRunDate) {
         streakData.totalRuns += 1;
         streakData.totalDistance += activity.distance;
         streakData.totalTime += activity.moving_time || activity.elapsed_time || 0;
         streakData.totalElevation += activity.total_elevation_gain || 0;
+        newRunProcessed = true;
       }
     }
 
@@ -55,8 +59,8 @@ async function updateRunStreak(activity = null) {
       daysSinceLastRun = Math.floor(timeDiff / (1000 * 3600 * 24));
     }
 
-    // Update streak logic
-    if (!streakData.manuallyUpdated) {
+    // Update streak logic only if a new run was processed
+    if (!streakData.manuallyUpdated && newRunProcessed) {
       if (hadRunYesterday || daysSinceLastRun === 1) {
         // Continue the streak
         streakData.currentStreak += 1;
@@ -76,14 +80,27 @@ async function updateRunStreak(activity = null) {
       streakData.longestStreak = streakData.currentStreak;
     }
 
-    // Set lastRunDate to the current activity date
-    streakData.lastRunDate = currentActivityDate;
+    // Set lastRunDate to the current activity date if it's a run
+    if (activity && activity.type === 'Run') {
+      streakData.lastRunDate = currentActivityDate;
+    }
 
     // Save updated data
     await saveStreakData(streakData);
 
+    // Save this as the last processed activity if it's a run
+    if (activity && activity.type === 'Run') {
+      await saveLastActivity({
+        id: activity.id,
+        date: activity.start_date,
+        type: activity.type,
+        distance: activity.distance
+      });
+    }
+
     return { 
-      message: `Streak updated successfully`,
+      message: newRunProcessed ? "Streak updated successfully with new run" : "No new runs processed",
+      newRunProcessed: newRunProcessed,
       hadRunYesterday: hadRunYesterday,
       daysSinceLastRun: daysSinceLastRun,
       ...streakData
