@@ -291,10 +291,10 @@ app.get('/xapp', async (req, res) => {
               </div>
               
               <div class="actions-grid">
-                <a href="/update-streak" class="action-card">
-                  <i class="fas fa-sync-alt"></i>
-                  <h3>Update Streak</h3>
-                  <p>Process today's runs</p>
+                <a href="/update-strava-activity" class="action-card">
+                  <i class="fas fa-sync"></i>
+                  <h3>Update Strava</h3>
+                  <p>Refresh latest activity</p>
                 </a>
                 
                 <a href="/stats" class="action-card">
@@ -302,12 +302,6 @@ app.get('/xapp', async (req, res) => {
                   <h3>View Stats</h3>
                   <p>Running statistics</p>
                 </a>
-                
-                <a href="/update-strava-activity" class="action-card">
-  <i class="fas fa-sync"></i>
-  <h3>Update Strava</h3>
-  <p>Refresh latest activity</p>
-</a>
                 
                 <a href="/setup-webhook" class="action-card">
                   <i class="fas fa-plug"></i>
@@ -336,8 +330,8 @@ app.get('/xapp', async (req, res) => {
                   <i class="fas fa-sliders-h"></i> Manual Stats Update
                 </a>
                 <a href="/update-strava-activity" class="btn btn-outline">
-  <i class="fas fa-sync"></i> Update Latest Activity
-</a>
+                  <i class="fas fa-sync"></i> Update Latest Activity
+                </a>
                 <a href="/health" class="btn btn-outline">
                   <i class="fas fa-heartbeat"></i> System Health
                 </a>
