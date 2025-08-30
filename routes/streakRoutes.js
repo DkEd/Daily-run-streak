@@ -48,37 +48,40 @@ router.get('/update-streak', async (req, res) => {
   }
 });
 
-// Add this new route to force update Strava activities
-router.get('/update-strava-activities', async (req, res) => {
+// Fix this route to only update the MOST RECENT activity, not all activities
+router.get('/update-strava-activity', async (req, res) => {
   try {
     if (!await stravaAuth.isAuthenticated()) {
       return res.send('<h1>Not Authenticated</h1><p><a href="/auth/strava">Authenticate with Strava first</a></p>');
     }
     
-    // Get recent run activities
-    const activities = await stravaApi.getRecentActivities(10);
-    const runActivities = activities.filter(activity => activity.type === 'Run');
+    // Get only the most recent activity
+    const activities = await stravaApi.getRecentActivities(1);
     
-    let updatedCount = 0;
-    const streakData = await loadStreakData();
-    
-    // Update each run activity
-    for (const activity of runActivities) {
-      try {
-        const description = await generateDescription(streakData, activity.id);
-        await stravaApi.updateActivityDescription(activity.id, description);
-        updatedCount++;
-        console.log('Updated Strava activity:', activity.id);
-      } catch (error) {
-        console.error('Error updating activity', activity.id, error.message);
-      }
+    if (activities.length === 0) {
+      return res.send('<h1>No Activities Found</h1><p>No recent activities found to update.</p><a href="/xapp">Back to App</a>');
     }
     
-    res.send(`
-      <h1>Strava Activities Updated</h1>
-      <p>Successfully updated ${updatedCount} run activities on Strava.</p>
-      <p><a href="/xapp">Back to App</a></p>
-    `);
+    const activity = activities[0];
+    const streakData = await loadStreakData();
+    
+    if (activity.type === 'Run') {
+      const description = await generateDescription(streakData, activity.id);
+      await stravaApi.updateActivityDescription(activity.id, description);
+      
+      res.send(`
+        <h1>Strava Activity Updated</h1>
+        <p>Successfully updated the most recent run activity on Strava.</p>
+        <p><strong>Activity:</strong> ${new Date(activity.start_date).toLocaleString()} - ${(activity.distance / 1000).toFixed(1)} km</p>
+        <p><a href="/xapp">Back to App</a></p>
+      `);
+    } else {
+      res.send(`
+        <h1>No Run Activity</h1>
+        <p>The most recent activity is not a run (${activity.type}). Only run activities are updated.</p>
+        <p><a href="/xapp">Back to App</a></p>
+      `);
+    }
   } catch (error) {
     res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
   }
