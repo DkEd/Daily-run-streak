@@ -1,4 +1,8 @@
- function updateStreakStatsWithRun(activity) {
+const { loadStreakStats, saveStreakStats, saveLastActivity } = require('../config/storage');
+const stravaApi = require('../services/stravaApi');
+const { generateDescription } = require('../utils/descriptionGenerator');
+
+async function updateStreakStatsWithRun(activity) {
   try {
     const streakStats = await loadStreakStats();
     const today = new Date();
@@ -104,6 +108,7 @@ async function manuallyUpdateStreakStats(updates) {
     });
     
     streakStats.manuallyUpdated = true;
+    streakStats.lastUpdated = new Date().toISOString();
     await saveStreakStats(streakStats);
     
     return { success: true, data: streakStats };
