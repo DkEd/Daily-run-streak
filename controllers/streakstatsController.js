@@ -1,8 +1,4 @@
-const { loadStreakStats, saveStreakStats, saveLastActivity } = require('../config/storage');
-const stravaApi = require('../services/stravaApi');
-const { generateDescription } = require('../utils/descriptionGenerator');
-
-async function updateStreakStatsWithRun(activity) {
+ function updateStreakStatsWithRun(activity) {
   try {
     const streakStats = await loadStreakStats();
     const today = new Date();
