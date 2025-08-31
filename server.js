@@ -2,7 +2,6 @@ const express = require('express');
 const authRoutes = require('./routes/authRoutes');
 const streakstatsRoutes = require('./routes/streakstatsRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
-const manualRoutes = require('./routes/manualRoutes');
 const debugRoutes = require('./routes/debugRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -29,7 +28,6 @@ app.use('/', publicRoutes);
 app.use('/', authRoutes);
 app.use('/', streakstatsRoutes);
 app.use('/', webhookRoutes);
-app.use('/', manualRoutes);
 app.use('/', debugRoutes);
 app.use('/', adminRoutes);
 
