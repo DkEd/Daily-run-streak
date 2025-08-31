@@ -2,6 +2,7 @@ const express = require('express');
 const stravaAuth = require('../services/stravaAuth');
 const { loadStreakStats, getStravaTokens, getLastActivity, getWebhookConfig, healthCheck } = require('../config/storage');
 const redisClient = require('../config/redis');
+const { formatTime } = require('../utils/formatters');
 const router = express.Router();
 
 // Debug homepage
@@ -62,6 +63,7 @@ router.get('/debug', async (req, res) => {
               <li><a href="/debug/storage">💾 Storage Contents</a> - View all stored data</li>
               <li><a href="/debug/env">⚙️ Environment Variables</a> - Check configuration</li>
               <li><a href="/debug/strava-api">🔄 Strava API Test</a> - Test Strava API connection</li>
+              <li><a href="/debug/totaltime">⏱️ TotalTime Debug</a> - Check totalTime value</li>
             </ul>
           </div>
 
@@ -81,6 +83,79 @@ router.get('/debug', async (req, res) => {
     `);
   } catch (error) {
     res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Home</a>`);
+  }
+});
+
+// Debug endpoint to check current totalTime value
+router.get('/debug/totaltime', async (req, res) => {
+  try {
+    const streakStats = await loadStreakStats();
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>TotalTime Debug</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                 background: #f8fafc; color: #1f2937; padding: 20px; }
+          .container { max-width: 800px; margin: 0 auto; }
+          h1 { color: #1f2937; margin-bottom: 1rem; }
+          .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+          pre { background: #f9fafb; padding: 1rem; border-radius: 6px; overflow-x: auto; }
+          .btn { display: inline-block; padding: 0.5rem 1rem; background: #3b82f6; color: white; 
+                text-decoration: none; border-radius: 6px; margin: 0.25rem; }
+          .btn:hover { background: #2563eb; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>TotalTime Debug</h1>
+          
+          <div class="card">
+            <p><strong>Current totalTime:</strong> ${streakStats.totalTime} seconds</p>
+            <p><strong>Formatted:</strong> ${formatTime(streakStats.totalTime)}</p>
+            <p><strong>Last Updated:</strong> ${streakStats.lastUpdated}</p>
+          </div>
+          
+          <div class="card">
+            <h3>Full StreakStats Data</h3>
+            <pre>${JSON.stringify(streakStats, null, 2)}</pre>
+          </div>
+          
+          <div>
+            <a href="/manual-streakstats-update" class="btn">✏️ Edit StreakStats</a>
+            <a href="/xapp" class="btn">⚙️ Back to Admin</a>
+            <a href="/debug" class="btn">🐛 Back to Debug</a>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/debug">Back to Debug</a>`);
+  }
+});
+
+// Temporary fix endpoint for totalTime
+router.post('/debug/fix-totaltime', async (req, res) => {
+  try {
+    const { loadStreakStats, saveStreakStats } = require('../config/storage');
+    const streakStats = await loadStreakStats();
+    
+    // Force add totalTime if missing
+    if (typeof streakStats.totalTime !== 'number') {
+      streakStats.totalTime = 0;
+      await saveStreakStats(streakStats);
+      res.send('<h1>Fixed</h1><p>totalTime field added successfully!</p>');
+    } else {
+      res.send('<h1>Already Fixed</h1><p>totalTime field already exists.</p>');
+    }
+    
+    res.send(`<pre>${JSON.stringify(streakStats, null, 2)}</pre>`);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
   }
 });
 
@@ -146,6 +221,7 @@ router.get('/debug/redis-data', async (req, res) => {
             <p><strong>Key:</strong> app:streakstats</p>
             <p><strong>Last Updated:</strong> ${new Date(streakStats.lastUpdated).toLocaleString()}</p>
             <p><strong>Manually Updated:</strong> ${streakStats.manuallyUpdated ? 'Yes' : 'No'}</p>
+            <p><strong>Total Time:</strong> ${streakStats.totalTime} seconds (${formatTime(streakStats.totalTime)})</p>
             <pre>${JSON.stringify(streakStats, null, 2)}</pre>
           </div>
 
@@ -276,29 +352,6 @@ router.get('/debug/storage', async (req, res) => {
     res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/debug">Back to Debug</a>`);
   }
 });
-
-
-// Add to routes/debugRoutes.js
-router.post('/debug/fix-totaltime', async (req, res) => {
-  try {
-    const { loadStreakStats, saveStreakStats } = require('../config/storage');
-    const streakStats = await loadStreakStats();
-    
-    // Force add totalTime if missing
-    if (typeof streakStats.totalTime !== 'number') {
-      streakStats.totalTime = 0;
-      await saveStreakStats(streakStats);
-      res.send('<h1>Fixed</h1><p>totalTime field added successfully!</p>');
-    } else {
-      res.send('<h1>Already Fixed</h1><p>totalTime field already exists.</p>');
-    }
-    
-    res.send(`<pre>${JSON.stringify(streakStats, null, 2)}</pre>`);
-  } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
-  }
-});
-
 
 // Environment variables
 router.get('/debug/env', async (req, res) => {
