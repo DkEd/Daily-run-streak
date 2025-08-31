@@ -89,6 +89,9 @@ app.get('/xapp', async (req, res) => {
     const lastActivity = await getLastActivity();
     const redisHealth = await healthCheck();
     
+    const message = req.query.message;
+    const error = req.query.error;
+    
     const authStatus = tokenInfo.hasTokens 
       ? `<div class="auth-status connected">
            <span class="status-dot"></span>
@@ -116,11 +119,17 @@ app.get('/xapp', async (req, res) => {
     const lastActivityInfo = lastActivity.date 
       ? `<div class="status-item success">
            <span class="status-dot"></span>
-           Last Activity: ${new Date(lastActivity.date).toLocaleString()} (${lastActivity.type})
+           Last Processed: ${new Date(lastActivity.date).toLocaleString()} (${lastActivity.type})
+           <form action="/refresh-last-activity" method="POST" style="display: inline; margin-left: 10px;">
+             <button type="submit" class="btn btn-sm btn-outline">Get Latest Activity</button>
+           </form>
          </div>`
       : `<div class="status-item">
            <span class="status-dot"></span>
            Last Activity: None recorded
+           <form action="/refresh-last-activity" method="POST" style="display: inline; margin-left: 10px;">
+             <button type="submit" class="btn btn-sm btn-outline">Get Latest Activity</button>
+           </form>
          </div>`;
 
     res.send(`
@@ -218,8 +227,17 @@ app.get('/xapp', async (req, res) => {
               ${redisStatus}
               ${lastActivityInfo}
             </div>
+            ${message ? `<div class="status-item success" style="margin-bottom: 1rem;">
+              <span class="status-dot"></span>
+              ${message}
+            </div>` : ''}
+            ${error ? `<div class="status-item error" style="margin-bottom: 1rem;">
+              <span class="status-dot"></span>
+              ${error}
+            </div>` : ''}
           </div>
           
+          <!-- Rest of the HTML remains the same -->
           <div class="grid">
             <div class="card">
               <div class="card-header">
