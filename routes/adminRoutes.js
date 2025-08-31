@@ -1,16 +1,7 @@
 const express = require('express');
 const stravaAuth = require('../services/stravaAuth');
 const stravaApi = require('../services/stravaApi');
-const {
-  healthCheck,
-  loadStatsData,
-  loadStreakData,
-  saveStatsData,
-  saveStreakData,
-  getLastActivity,
-  saveLastActivity
-} = require('../config/storage');
-
+const { healthCheck, loadStatsData, loadStreakData, saveStatsData, saveStreakData, getLastActivity, saveLastActivity } = require('../config/storage');
 const router = express.Router();
 
 // Refresh last activity from Strava
@@ -19,19 +10,19 @@ router.post('/refresh-last-activity', async (req, res) => {
     if (!await stravaAuth.isAuthenticated()) {
       return res.redirect('/auth/strava');
     }
-
+    
     const activities = await stravaApi.getRecentActivities(1);
-
+    
     if (activities.length > 0) {
       const activity = activities[0];
-
+      
       await saveLastActivity({
         id: activity.id,
         date: activity.start_date,
         type: activity.type,
         distance: activity.distance
       });
-
+      
       console.log('Refreshed last activity from Strava:', activity.id, activity.type);
       res.redirect('/xapp?message=Latest activity refreshed from Strava');
     } else {
@@ -49,7 +40,7 @@ router.post('/toggle-stats-mode', async (req, res) => {
     const statsData = await loadStatsData();
     statsData.manuallyUpdated = !statsData.manuallyUpdated;
     statsData.lastUpdated = new Date().toISOString();
-
+    
     await saveStatsData(statsData);
     res.redirect('/xapp');
   } catch (error) {
@@ -57,13 +48,13 @@ router.post('/toggle-stats-mode', async (req, res) => {
   }
 });
 
-// Toggle streak manual mode
+// Toggle streak manual mode  
 router.post('/toggle-streak-mode', async (req, res) => {
   try {
     const streakData = await loadStreakData();
     streakData.manuallyUpdated = !streakData.manuallyUpdated;
     streakData.lastManualUpdate = new Date().toISOString();
-
+    
     await saveStreakData(streakData);
     res.redirect('/xapp');
   } catch (error) {
@@ -79,11 +70,11 @@ router.get('/xapp', async (req, res) => {
     const streakData = await loadStreakData();
     const lastActivity = await getLastActivity();
     const redisHealth = await healthCheck();
-
+    
     const message = req.query.message;
     const error = req.query.error;
-
-    const authStatus = tokenInfo.hasTokens
+    
+    const authStatus = tokenInfo.hasTokens 
       ? `<div class="auth-status connected">
            <span class="status-dot"></span>
            Connected as: ${tokenInfo.athlete.firstname} ${tokenInfo.athlete.lastname}
@@ -95,8 +86,8 @@ router.get('/xapp', async (req, res) => {
            Not authenticated
            <a href="/auth/strava" class="btn btn-sm btn-primary">Connect Strava</a>
          </div>`;
-
-    const redisStatus = redisHealth
+    
+    const redisStatus = redisHealth 
       ? `<div class="status-item success">
            <span class="status-dot"></span>
            Redis: Connected
@@ -107,7 +98,7 @@ router.get('/xapp', async (req, res) => {
            <a href="/redis-status" class="btn btn-sm btn-outline">Check</a>
          </div>`;
 
-    const lastActivityInfo = lastActivity.date
+    const lastActivityInfo = lastActivity.date 
       ? `<div class="status-item success">
            <span class="status-dot"></span>
            Last Processed: ${new Date(lastActivity.date).toLocaleString()} (${lastActivity.type})
@@ -154,7 +145,7 @@ router.get('/xapp', async (req, res) => {
           
           .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
           .card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-          .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border); }
+          .card-header { display: flex; justify-content: between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border); }
           .card-header h2 { color: var(--dark); font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem; }
           
           .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
@@ -193,7 +184,7 @@ router.get('/xapp', async (req, res) => {
           input:checked + .slider:before { transform: translateX(26px); }
           
           .actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
-          .action-card { background: var(--light); padding: 1.25rem; border-radius: 8px; text-align: center; transition: transform 0.2s; }
+          .action-card { background: var(--light; padding: 1.25rem; border-radius: 8px; text-align: center; transition: transform 0.2s; }
           .action-card:hover { transform: translateY(-2px); }
           .action-card i { font-size: 1.5rem; margin-bottom: 0.75rem; color: var(--primary); }
           .action-card h3 { font-size: 0.875rem; margin-bottom: 0.5rem; }
@@ -353,3 +344,13 @@ router.get('/xapp', async (req, res) => {
       </body>
       </html>
     `);
+  } catch (error) {
+    res.send(`
+      <h1>Error Loading Admin</h1>
+      <p>${error.message}</p>
+      <a href="/auth/strava">Connect Strava</a>
+    `);
+  }
+});
+
+module.exports = router;
