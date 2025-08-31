@@ -1,7 +1,16 @@
 const express = require('express');
 const stravaAuth = require('../services/stravaAuth');
 const stravaApi = require('../services/stravaApi');
-const { healthCheck, loadStatsData, loadStreakData, saveStatsData, saveStreakData, getLastActivity, saveLastActivity } = require('../config/storage');
+const {
+  healthCheck,
+  loadStatsData,
+  loadStreakData,
+  saveStatsData,
+  saveStreakData,
+  getLastActivity,
+  saveLastActivity
+} = require('../config/storage');
+
 const router = express.Router();
 
 // Refresh last activity from Strava
@@ -10,19 +19,19 @@ router.post('/refresh-last-activity', async (req, res) => {
     if (!await stravaAuth.isAuthenticated()) {
       return res.redirect('/auth/strava');
     }
-    
+
     const activities = await stravaApi.getRecentActivities(1);
-    
+
     if (activities.length > 0) {
       const activity = activities[0];
-      
+
       await saveLastActivity({
         id: activity.id,
         date: activity.start_date,
         type: activity.type,
         distance: activity.distance
       });
-      
+
       console.log('Refreshed last activity from Strava:', activity.id, activity.type);
       res.redirect('/xapp?message=Latest activity refreshed from Strava');
     } else {
@@ -40,7 +49,7 @@ router.post('/toggle-stats-mode', async (req, res) => {
     const statsData = await loadStatsData();
     statsData.manuallyUpdated = !statsData.manuallyUpdated;
     statsData.lastUpdated = new Date().toISOString();
-    
+
     await saveStatsData(statsData);
     res.redirect('/xapp');
   } catch (error) {
@@ -48,13 +57,13 @@ router.post('/toggle-stats-mode', async (req, res) => {
   }
 });
 
-// Toggle streak manual mode  
+// Toggle streak manual mode
 router.post('/toggle-streak-mode', async (req, res) => {
   try {
     const streakData = await loadStreakData();
     streakData.manuallyUpdated = !streakData.manuallyUpdated;
     streakData.lastManualUpdate = new Date().toISOString();
-    
+
     await saveStreakData(streakData);
     res.redirect('/xapp');
   } catch (error) {
@@ -70,11 +79,11 @@ router.get('/xapp', async (req, res) => {
     const streakData = await loadStreakData();
     const lastActivity = await getLastActivity();
     const redisHealth = await healthCheck();
-    
+
     const message = req.query.message;
     const error = req.query.error;
-    
-    const authStatus = tokenInfo.hasTokens 
+
+    const authStatus = tokenInfo.hasTokens
       ? `<div class="auth-status connected">
            <span class="status-dot"></span>
            Connected as: ${tokenInfo.athlete.firstname} ${tokenInfo.athlete.lastname}
@@ -86,8 +95,8 @@ router.get('/xapp', async (req, res) => {
            Not authenticated
            <a href="/auth/strava" class="btn btn-sm btn-primary">Connect Strava</a>
          </div>`;
-    
-    const redisStatus = redisHealth 
+
+    const redisStatus = redisHealth
       ? `<div class="status-item success">
            <span class="status-dot"></span>
            Redis: Connected
@@ -98,7 +107,7 @@ router.get('/xapp', async (req, res) => {
            <a href="/redis-status" class="btn btn-sm btn-outline">Check</a>
          </div>`;
 
-    const lastActivityInfo = lastActivity.date 
+    const lastActivityInfo = lastActivity.date
       ? `<div class="status-item success">
            <span class="status-dot"></span>
            Last Processed: ${new Date(lastActivity.date).toLocaleString()} (${lastActivity.type})
@@ -139,16 +148,16 @@ router.get('/xapp', async (req, res) => {
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #1f2937; line-height: 1.6; }
           
           .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-          .header { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px极狐 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 2rem; }
-          .header h1 { color: var(--dark); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.75极狐; }
+          .header { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 2rem; }
+          .header h1 { color: var(--dark); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.75rem; }
           .header h1 i { color: var(--primary); }
           
           .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-          .card { background: white; padding: 极狐 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-          .card-header { display: flex; justify-content: between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border); }
-          .极狐 card-header h2 { color: var(--dark); font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem; }
+          .card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+          .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border); }
+          .card-header h2 { color: var(--dark); font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem; }
           
-          .status-grid { display: grid; grid-template-column极狐s: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+          .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
           .status-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: var(--light); border-radius: 8px; }
           .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
           .status-dot.success { background: var(--success); }
@@ -161,7 +170,7 @@ router.get('/xapp', async (req, res) => {
           
           .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-weight: 500; transition: all 0.2s; border: none; cursor: pointer; }
           .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.875rem; }
-          .btn-primary { background: var(--primary);极狐 color: white; }
+          .btn-primary { background: var(--primary); color: white; }
           .btn-primary:hover { background: #5a67d8; }
           .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--gray); }
           .btn-outline:hover { background: var(--light); border-color: var(--gray); }
@@ -179,7 +188,7 @@ router.get('/xapp', async (req, res) => {
           .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
           .switch input { opacity: 0; width: 0; height: 0; }
           .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--gray); transition: .4s; border-radius: 24px; }
-          .slider:before { position: absolute; content: ""; height: 16极狐px; width: 16px; left: 4px; bottom: 4极狐px; background-color: white; transition: .4s; border-radius: 50%; }
+          .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
           input:checked + .slider { background-color: var(--success); }
           input:checked + .slider:before { transform: translateX(26px); }
           
@@ -190,8 +199,8 @@ router.get('/xapp', async (req, res) => {
           .action-card h3 { font-size: 0.875rem; margin-bottom: 0.5rem; }
           
           .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem; }
-          .stat-item { text-align: center; padding: 1rem; background: var(--极狐light); border-radius: 8px; }
-          .stat-value极狐 { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+          .stat-item { text-align: center; padding: 1rem; background: var(--light); border-radius: 8px; }
+          .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
           .stat-label { font-size: 0.875rem; color: var(--gray); }
           
           @media (max-width: 768px) {
@@ -203,7 +212,7 @@ router.get('/xapp', async (req, res) => {
       <body>
         <div class="container">
           <div class="header">
-            <h1><i class="fas fa-running"></i> Strava Run Streak Admin</极狐h1>
+            <h1><i class="fas fa-running"></i> Strava Run Streak Admin</h1>
             <div class="status-grid">
               ${authStatus}
               ${redisStatus}
@@ -231,7 +240,7 @@ router.get('/xapp', async (req, res) => {
                   <p>${statsData.manuallyUpdated ? 'Manual - Your values are preserved' : 'Auto - Updates with new runs'}</p>
                 </div>
                 <form action="/toggle-stats-mode" method="POST" style="display: inline;">
-                  <label class极狐="switch">
+                  <label class="switch">
                     <input type="checkbox" ${statsData.manuallyUpdated ? 'checked' : ''} onchange="this.form.submit()">
                     <span class="slider"></span>
                   </label>
@@ -262,7 +271,7 @@ router.get('/xapp', async (req, res) => {
                   <div class="stat-value">${streakData.currentStreak}</div>
                   <div class="stat-label">Current Streak</div>
                 </div>
-                <极狐div class="stat-item">
+                <div class="stat-item">
                   <div class="stat-value">${streakData.longestStreak}</div>
                   <div class="stat-label">Longest Streak</div>
                 </div>
@@ -296,14 +305,14 @@ router.get('/xapp', async (req, res) => {
                   <p>Refresh latest activity</p>
                 </a>
                 
-                <a href="/stats"极狐 class="action-card">
+                <a href="/stats" class="action-card">
                   <i class="fas fa-chart-line"></i>
                   <h3>View Stats</h3>
                   <p>Running statistics</p>
                 </a>
                 
                 <a href="/setup-webhook" class="action-card">
-                  <极狐i class="fas fa-plug"></i>
+                  <i class="fas fa-plug"></i>
                   <h3>Setup Webhook</h3>
                   <p>Automatic updates</p>
                 </a>
@@ -331,7 +340,7 @@ router.get('/xapp', async (req, res) => {
                 <a href="/update-strava-activity" class="btn btn-outline">
                   <i class="fas fa-sync"></i> Update Latest Activity
                 </a>
-                <a href="/health" class="btn btn极狐-outline">
+                <a href="/health" class="btn btn-outline">
                   <i class="fas fa-heartbeat"></i> System Health
                 </a>
                 <a href="/debug" class="btn btn-outline">
@@ -344,13 +353,3 @@ router.get('/xapp', async (req, res) => {
       </body>
       </html>
     `);
-  } catch (error) {
-    res.send(`
-      <h1>Error Loading Admin</h1>
-      <p>${error.message}</p>
-      <a href="/auth/strava">Connect Strava</a>
-    `);
-  }
-});
-
-module.exports = router;
