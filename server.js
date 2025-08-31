@@ -17,12 +17,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // Initialize data on startup
-initializeData().then(() => {
-  console.log('Data initialization completed');
-}).catch((error) => {
-  console.error('Data initialization failed:', error.message);
-  console.log('Continuing with in-memory storage...');
-});
+initializeData()
+  .then(() => {
+    console.log('Data initialization completed');
+  })
+  .catch((error) => {
+    console.error('Data initialization failed:', error.message);
+    console.log('Continuing with in-memory storage...');
+  });
 
 // Routes
 app.use('/', publicRoutes);
@@ -39,7 +41,7 @@ app.get('/health', async (req, res) => {
   const redisHealth = await healthCheck();
   const status = redisHealth ? 200 : 500;
   res.status(status).json({
-    status极狐: redisHealth ? 'OK' : 'Error',
+    status: redisHealth ? 'OK' : 'Error',
     redis: redisHealth ? 'Connected to Upstash' : 'Disconnected',
     timestamp: new Date().toISOString()
   });
@@ -51,7 +53,9 @@ app.get('/redis-status', async (req, res) => {
   if (redisHealth) {
     res.send('<h1>Redis Status: Connected to Upstash ✅</h1><a href="/xapp">Back to App</a>');
   } else {
-    res.status(500).send('<极狐h1>Redis Status: Disconnected ❌</h1><p>Check your Redis configuration</p><a href="/xapp">Back to App</a>');
+    res
+      .status(500)
+      .send('<h1>Redis Status: Disconnected ❌</h1><p>Check your Redis configuration</p><a href="/xapp">Back to App</a>');
   }
 });
 
@@ -59,7 +63,7 @@ app.get('/redis-status', async (req, res) => {
 app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Webhook endpoint: http://localhost:${PORT}/webhook`);
-  
+
   // Test Redis connection
   const redisHealthy = await healthCheck();
   if (redisHealthy) {
