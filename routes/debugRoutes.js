@@ -277,6 +277,29 @@ router.get('/debug/storage', async (req, res) => {
   }
 });
 
+
+// Add to routes/debugRoutes.js
+router.post('/debug/fix-totaltime', async (req, res) => {
+  try {
+    const { loadStreakStats, saveStreakStats } = require('../config/storage');
+    const streakStats = await loadStreakStats();
+    
+    // Force add totalTime if missing
+    if (typeof streakStats.totalTime !== 'number') {
+      streakStats.totalTime = 0;
+      await saveStreakStats(streakStats);
+      res.send('<h1>Fixed</h1><p>totalTime field added successfully!</p>');
+    } else {
+      res.send('<h1>Already Fixed</h1><p>totalTime field already exists.</p>');
+    }
+    
+    res.send(`<pre>${JSON.stringify(streakStats, null, 2)}</pre>`);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
+  }
+});
+
+
 // Environment variables
 router.get('/debug/env', async (req, res) => {
   try {
