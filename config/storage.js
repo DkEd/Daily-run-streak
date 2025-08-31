@@ -28,6 +28,7 @@ const DEFAULT_DATA = {
     // Totals (for description)
     totalRuns: 0,
     totalDistance: 0,
+    totalTime: 0,
     totalElevation: 0,
     
     // Management
