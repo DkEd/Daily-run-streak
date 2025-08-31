@@ -101,8 +101,9 @@ async function manuallyUpdateStreakStats(updates) {
           streakStats[key] = parseFloat(updates[key]) * 1000;
           console.log('DEBUG: Set', key, 'to:', streakStats[key], 'meters');
         } else if (key === 'totalTime') {
-          // Handle total time (already in seconds) - FIXED: Use parseInt instead of parseFloat
-          streakStats[key] = parseInt(updates[key]) || 0;
+          // Handle total time (already in seconds) - FIXED: Ensure proper parsing
+          const timeValue = parseInt(updates[key]) || 0;
+          streakStats[key] = timeValue;
           console.log('DEBUG: Set totalTime to:', streakStats[key], 'seconds');
         } else if (typeof streakStats[key] === 'number') {
           streakStats[key] = parseFloat(updates[key]) || 0;
@@ -111,13 +112,21 @@ async function manuallyUpdateStreakStats(updates) {
           streakStats[key] = updates[key];
           console.log('DEBUG: Set', key, 'to:', streakStats[key]);
         }
+      } else {
+        console.log('DEBUG: Field not found in streakStats:', key);
       }
     });
+    
+    // Double-check that totalTime was set correctly
+    if (updates.totalTime && !streakStats.totalTime) {
+      console.log('DEBUG: totalTime was not set properly, forcing update');
+      streakStats.totalTime = parseInt(updates.totalTime) || 0;
+    }
     
     streakStats.manuallyUpdated = true;
     streakStats.lastUpdated = new Date().toISOString();
     
-    console.log('DEBUG: Saving streakstats with totalTime:', streakStats.totalTime);
+    console.log('DEBUG: Final streakstats before save - totalTime:', streakStats.totalTime);
     await saveStreakStats(streakStats);
     
     return { success: true, data: streakStats };
