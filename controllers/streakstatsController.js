@@ -96,6 +96,9 @@ async function manuallyUpdateStreakStats(updates) {
         } else if (key.includes('Distance') || key.includes('Goal')) {
           // Convert km to meters for distance fields
           streakStats[key] = parseFloat(updates[key]) * 1000;
+        } else if (key === 'totalTime') {
+          // Handle total time (already in seconds)
+          streakStats[key] = parseFloat(updates[key]) || 0;
         } else if (typeof streakStats[key] === 'number') {
           streakStats[key] = parseFloat(updates[key]) || 0;
         } else {
