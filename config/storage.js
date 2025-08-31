@@ -141,41 +141,7 @@ async function saveStreakStats(data) {
   }
 }
 
-// Backward compatibility function
-async function loadStatsData() {
-  try {
-    console.log('⚠️  loadStatsData() is deprecated - using loadStreakStats() instead');
-    const streakStats = await loadStreakStats();
-    
-    // Convert back to old stats format for compatibility
-    return {
-      monthlyDistance: streakStats.monthlyDistance,
-      yearlyDistance: streakStats.yearlyDistance,
-      monthlyTime: 0, // Not used anymore but kept for compatibility
-      yearlyTime: 0,  // Not used anymore but kept for compatibility
-      monthlyElevation: streakStats.monthlyElevation,
-      yearlyElevation: streakStats.yearlyElevation,
-      monthlyGoal: streakStats.monthlyGoal,
-      yearlyGoal: streakStats.yearlyGoal,
-      lastUpdated: streakStats.lastUpdated,
-      manuallyUpdated: streakStats.manuallyUpdated
-    };
-  } catch (error) {
-    console.error('Error in loadStatsData compatibility:', error.message);
-    return {
-      monthlyDistance: 0,
-      yearlyDistance: 0,
-      monthlyTime: 0,
-      yearlyTime: 0,
-      monthlyElevation: 0,
-      yearlyElevation: 0,
-      monthlyGoal: 250000,
-      yearlyGoal: 3250000,
-      lastUpdated: new Date().toISOString(),
-      manuallyUpdated: false
-    };
-  }
-}
+
 
 // Token functions
 async function saveStravaTokens(tokens) {
@@ -289,7 +255,6 @@ module.exports = {
   initializeData,
   loadStreakStats,
   saveStreakStats,
-  loadStatsData,
   saveStravaTokens,
   getStravaTokens,
   getWebhookConfig,
