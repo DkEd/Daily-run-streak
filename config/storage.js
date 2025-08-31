@@ -111,12 +111,17 @@ async function initializeData() {
 async function loadStreakStats() {
   try {
     const redisAvailable = await redisClient.healthCheck();
+    let data;
+    
     if (redisAvailable) {
-      const data = await redisClient.get(KEYS.STREAKSTATS);
-      return data || DEFAULT_DATA.STREAKSTATS;
+      data = await redisClient.get(KEYS.STREAKSTATS);
+      console.log('DEBUG: Loaded from Redis - totalTime:', data?.totalTime);
     } else {
-      return memoryFallback[KEYS.STREAKSTATS];
+      data = memoryFallback[KEYS.STREAKSTATS];
+      console.log('DEBUG: Loaded from memory - totalTime:', data?.totalTime);
     }
+    
+    return data || DEFAULT_DATA.STREAKSTATS;
   } catch (error) {
     console.error('Error loading streakstats:', error.message);
     return memoryFallback[KEYS.STREAKSTATS];
@@ -127,11 +132,15 @@ async function saveStreakStats(data) {
   try {
     data.lastUpdated = new Date().toISOString();
     
+    console.log('DEBUG: Saving streakstats - totalTime:', data.totalTime);
+    
     const redisAvailable = await redisClient.healthCheck();
     if (redisAvailable) {
       await redisClient.set(KEYS.STREAKSTATS, data);
+      console.log('DEBUG: Saved to Redis successfully');
     } else {
       memoryFallback[KEYS.STREAKSTATS] = data;
+      console.log('DEBUG: Saved to memory fallback');
     }
     return true;
   } catch (error) {
@@ -140,8 +149,6 @@ async function saveStreakStats(data) {
     return false;
   }
 }
-
-
 
 // Token functions
 async function saveStravaTokens(tokens) {
