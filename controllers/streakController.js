@@ -48,11 +48,11 @@ async function updateRunStreak(activity = null) {
       }
     }
 
-    // Check for consecutive days using last activity date
+    // Check for consecutive days using streakData.lastRunDate (not lastActivity.date)
     const hadRunYesterday = yesterdaysRuns.length > 0;
-    const lastRunDateObj = lastRunDate ? new Date(lastRunDate) : null;
+    const lastRunDateObj = streakData.lastRunDate ? new Date(streakData.lastRunDate) : null;
     
-    // Calculate days since last run
+    // Calculate days since last run - USE streakData.lastRunDate for streak calculations
     let daysSinceLastRun = Infinity;
     if (lastRunDateObj) {
       const timeDiff = today.getTime() - lastRunDateObj.getTime();
@@ -68,21 +68,19 @@ async function updateRunStreak(activity = null) {
         // Gap in running - reset streak to 1
         streakData.currentStreak = 1;
         streakData.streakStartDate = todayDate;
-      } else if (!lastRunDate) {
+      } else if (!streakData.lastRunDate) {
         // First run ever
         streakData.currentStreak = 1;
         streakData.streakStartDate = todayDate;
       }
+      
+      // Update lastRunDate to today when a new run is processed
+      streakData.lastRunDate = currentActivityDate;
     }
 
     // Update longest streak if needed
     if (streakData.currentStreak > streakData.longestStreak) {
       streakData.longestStreak = streakData.currentStreak;
-    }
-
-    // Set lastRunDate to the current activity date if it's a run
-    if (activity && activity.type === 'Run') {
-      streakData.lastRunDate = currentActivityDate;
     }
 
     // Save updated data
