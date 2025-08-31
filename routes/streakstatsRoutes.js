@@ -161,6 +161,10 @@ router.get('/manual-streakstats-update', async (req, res) => {
                 <input type="number" step="0.1" id="totalDistance" name="totalDistance" value="${metersToKm(streakStats.totalDistance)}" required>
               </div>
               <div class="form-group">
+                <label for="totalTime">Total Time (seconds):</label>
+                <input type="number" id="totalTime" name="totalTime" value="${streakStats.totalTime || 0}" required>
+              </div>
+              <div class="form-group">
                 <label for="totalElevation">Total Elevation (meters):</label>
                 <input type="number" id="totalElevation" name="totalElevation" value="${streakStats.totalElevation}" required>
               </div>
