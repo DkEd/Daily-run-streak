@@ -23,6 +23,12 @@ initializeData().then(() => {
   console.log('Continuing with in-memory storage...');
 });
 
+// Add migration
+const migrateTotalTime = require('./migrate-totaltime');
+migrateTotalTime().then(() => {
+  console.log('TotalTime migration check completed');
+});
+
 // Routes
 app.use('/', publicRoutes);
 app.use('/', authRoutes);
