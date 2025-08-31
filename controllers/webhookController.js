@@ -1,9 +1,7 @@
 const crypto = require('crypto');
 const stravaApi = require('../services/stravaApi');
-const { updateStatsWithRun } = require('./statsController');
-const { updateRunStreak } = require('./streakController');
-const { loadStreakData, saveLastActivity, getLastActivity } = require('../config/storage');
-const { generateDescription } = require('../utils/descriptionGenerator');
+const { updateStreakStatsWithRun, pushToStravaDescription } = require('./streakstatsController');
+const { getLastActivity, saveLastActivity } = require('../config/storage');
 
 async function processActivity(activityId) {
   try {
@@ -15,38 +13,24 @@ async function processActivity(activityId) {
     const lastActivityDate = lastActivity.date ? new Date(lastActivity.date) : null;
     
     if (!lastActivityDate || activityDate > lastActivityDate) {
-      // This is the newest activity, process it
-      await updateStatsWithRun(activity);
-      
       if (activity.type === 'Run') {
-        const streakData = await loadStreakData();
-        const description = await generateDescription(streakData, activityId);
-        await stravaApi.updateActivityDescription(activityId, description);
+        // Update streakstats
+        await updateStreakStatsWithRun(activity);
         
-        // Update streak for this run
-        const result = await updateRunStreak(activity);
+        // Update description
+        await pushToStravaDescription(activity.id);
         
-        // Save this as the last processed activity
-        await saveLastActivity({
-          id: activityId,
-          date: activity.start_date,
-          type: activity.type,
-          distance: activity.distance
-        });
-        
-        console.log('Processed NEW activity:', activityId, activity.type, `${(activity.distance / 1000).toFixed(1)} km`);
-        return result;
+        console.log('Processed NEW run activity:', activityId, `${(activity.distance / 1000).toFixed(1)} km`);
+        return { message: "Run activity processed successfully" };
       }
       
-      // Save non-run activities too for date tracking
+      // Save non-run activities for date tracking
       await saveLastActivity({
         id: activityId,
         date: activity.start_date,
         type: activity.type,
         distance: activity.distance
       });
-    } else {
-      console.log('Skipping older activity:', activityId, 'Last activity was newer');
     }
     
     return { message: "Activity processed or skipped" };
