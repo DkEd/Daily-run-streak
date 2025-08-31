@@ -104,6 +104,41 @@ router.post('/debug/redis/test', async (req, res) => {
   }
 });
 
+router.get('/debug/redis-data', async (req, res) => {
+  try {
+    const { loadStreakStats, getStravaTokens, getLastActivity, getWebhookConfig } = require('../config/storage');
+    
+    const streakStats = await loadStreakStats();
+    const tokens = await getStravaTokens();
+    const lastActivity = await getLastActivity();
+    const webhookConfig = await getWebhookConfig();
+    
+    res.send(`
+      <h1>Redis Data Debug</h1>
+      
+      <h2>StreakStats Data</h2>
+      <pre>${JSON.stringify(streakStats, null, 2)}</pre>
+      
+      <h2>Token Data</h2>
+      <pre>${JSON.stringify({
+        hasTokens: !!tokens.access_token,
+        athlete: tokens.athlete,
+        expires_at: tokens.expires_at ? new Date(tokens.expires_at * 1000).toLocaleString() : null
+      }, null, 2)}</pre>
+      
+      <h2>Last Activity</h2>
+      <pre>${JSON.stringify(lastActivity, null, 2)}</pre>
+      
+      <h2>Webhook Config</h2>
+      <pre>${JSON.stringify(webhookConfig, null, 2)}</pre>
+      
+      <p><a href="/debug">Back to Debug</a> | <a href="/xapp">Admin</a></p>
+    `);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/debug">Back to Debug</a>`);
+  }
+});
+
 // Token storage debug
 router.get('/debug/tokens', async (req, res) => {
   try {
