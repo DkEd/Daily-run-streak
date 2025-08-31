@@ -88,27 +88,36 @@ async function manuallyUpdateStreakStats(updates) {
   try {
     const streakStats = await loadStreakStats();
     
+    console.log('DEBUG: Manual update received:', updates);
+    
     // Update provided fields
     Object.keys(updates).forEach(key => {
       if (streakStats.hasOwnProperty(key)) {
         if (key === 'manuallyUpdated') {
           streakStats[key] = updates[key] === 'true';
+          console.log('DEBUG: Set manuallyUpdated to:', streakStats[key]);
         } else if (key.includes('Distance') || key.includes('Goal')) {
           // Convert km to meters for distance fields
           streakStats[key] = parseFloat(updates[key]) * 1000;
+          console.log('DEBUG: Set', key, 'to:', streakStats[key], 'meters');
         } else if (key === 'totalTime') {
-          // Handle total time (already in seconds)
-          streakStats[key] = parseFloat(updates[key]) || 0;
+          // Handle total time (already in seconds) - FIXED: Use parseInt instead of parseFloat
+          streakStats[key] = parseInt(updates[key]) || 0;
+          console.log('DEBUG: Set totalTime to:', streakStats[key], 'seconds');
         } else if (typeof streakStats[key] === 'number') {
           streakStats[key] = parseFloat(updates[key]) || 0;
+          console.log('DEBUG: Set', key, 'to:', streakStats[key]);
         } else {
           streakStats[key] = updates[key];
+          console.log('DEBUG: Set', key, 'to:', streakStats[key]);
         }
       }
     });
     
     streakStats.manuallyUpdated = true;
     streakStats.lastUpdated = new Date().toISOString();
+    
+    console.log('DEBUG: Saving streakstats with totalTime:', streakStats.totalTime);
     await saveStreakStats(streakStats);
     
     return { success: true, data: streakStats };
