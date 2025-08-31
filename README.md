@@ -2,7 +2,7 @@
 
 A Node.js application that tracks your Strava running streak and updates activity descriptions with your stats.
 
-## Features
+## Features 👍
 
 - 📊 Track running statistics (monthly and yearly)
 - 🔥 Maintain and display running streaks
