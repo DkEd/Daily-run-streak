@@ -1,7 +1,7 @@
 const express = require('express');
 const stravaAuth = require('../services/stravaAuth');
 const stravaApi = require('../services/stravaApi');
-const { healthCheck, loadStatsData, loadStreakData, saveStatsData, saveStreakData, getLastActivity, saveLastActivity } = require('../config/storage');
+const { healthCheck, loadStreakStats, saveStreakStats, getLastActivity, saveLastActivity } = require('../config/storage');
 const router = express.Router();
 
 // Refresh last activity from Strava
@@ -34,28 +34,14 @@ router.post('/refresh-last-activity', async (req, res) => {
   }
 });
 
-// Toggle stats manual mode
-router.post('/toggle-stats-mode', async (req, res) => {
+// Toggle manual mode
+router.post('/toggle-manual-mode', async (req, res) => {
   try {
-    const statsData = await loadStatsData();
-    statsData.manuallyUpdated = !statsData.manuallyUpdated;
-    statsData.lastUpdated = new Date().toISOString();
+    const streakStats = await loadStreakStats();
+    streakStats.manuallyUpdated = !streakStats.manuallyUpdated;
+    streakStats.lastUpdated = new Date().toISOString();
     
-    await saveStatsData(statsData);
-    res.redirect('/xapp');
-  } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
-  }
-});
-
-// Toggle streak manual mode  
-router.post('/toggle-streak-mode', async (req, res) => {
-  try {
-    const streakData = await loadStreakData();
-    streakData.manuallyUpdated = !streakData.manuallyUpdated;
-    streakData.lastManualUpdate = new Date().toISOString();
-    
-    await saveStreakData(streakData);
+    await saveStreakStats(streakStats);
     res.redirect('/xapp');
   } catch (error) {
     res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
@@ -66,8 +52,7 @@ router.post('/toggle-streak-mode', async (req, res) => {
 router.get('/xapp', async (req, res) => {
   try {
     const tokenInfo = await stravaAuth.getTokenInfo();
-    const statsData = await loadStatsData();
-    const streakData = await loadStreakData();
+    const streakStats = await loadStreakStats();
     const lastActivity = await getLastActivity();
     const redisHealth = await healthCheck();
     
@@ -113,13 +98,11 @@ router.get('/xapp', async (req, res) => {
           .action-card:hover { transform: translateY(-2px); }
           .action-card i { font-size: 2rem; color: #3b82f6; margin-bottom: 1rem; }
           
-          .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
           .toggle-item { background: #f9fafb; padding: 1rem; border-radius: 8px; display: flex; 
-                       justify-content: space-between; align-items: center; }
+                       justify-content: space-between; align-items: center; margin: 1rem 0; }
           
           .success { color: #10b981; }
           .error { color: #ef4444; }
-          .warning { color: #f59e0b; }
           
           .message { padding: 1rem; border-radius: 8px; margin: 1rem 0; }
           .message.success { background: #ecfdf5; border: 1px solid #10b981; }
@@ -175,67 +158,49 @@ router.get('/xapp', async (req, res) => {
             <h3>Streak Overview</h3>
             <div class="stats-grid">
               <div class="stat">
-                <div class="stat-value">${streakData.currentStreak}</div>
+                <div class="stat-value">${streakStats.currentStreak}</div>
                 <div class="stat-label">Current Streak</div>
               </div>
               <div class="stat">
-                <div class="stat-value">${streakData.longestStreak}</div>
+                <div class="stat-value">${streakStats.longestStreak}</div>
                 <div class="stat-label">Longest Streak</div>
               </div>
               <div class="stat">
-                <div class="stat-value">${streakData.totalRuns}</div>
+                <div class="stat-value">${streakStats.totalRuns}</div>
                 <div class="stat-label">Total Runs</div>
               </div>
             </div>
-            <div style="text-align: center; margin-top: 1rem;">
-              <a href="/streak-details" class="btn btn-outline">View Details</a>
-              <a href="/manual-streak-update" class="btn btn-outline">Manual Update</a>
-            </div>
           </div>
 
-          <div class="toggle-grid">
-            <div class="toggle-item">
-              <div>
-                <h3>Stats Update Mode</h3>
-                <p>${statsData.manuallyUpdated ? 'Manual - Values preserved' : 'Auto - Updates with runs'}</p>
-              </div>
-              <form action="/toggle-stats-mode" method="POST">
-                <button type="submit" class="btn ${statsData.manuallyUpdated ? '' : 'btn-outline'}">
-                  ${statsData.manuallyUpdated ? 'Manual' : 'Auto'}
-                </button>
-              </form>
+          <div class="toggle-item">
+            <div>
+              <h3>Update Mode</h3>
+              <p>${streakStats.manuallyUpdated ? 'Manual - Values preserved' : 'Auto - Updates with runs'}</p>
             </div>
-            
-            <div class="toggle-item">
-              <div>
-                <h3>Streak Update Mode</h3>
-                <p>${streakData.manuallyUpdated ? 'Manual - Values preserved' : 'Auto - Updates with runs'}</p>
-              </div>
-              <form action="/toggle-streak-mode" method="POST">
-                <button type="submit" class="btn ${streakData.manuallyUpdated ? '' : 'btn-outline'}">
-                  ${streakData.manuallyUpdated ? 'Manual' : 'Auto'}
-                </button>
-              </form>
-            </div>
+            <form action="/toggle-manual-mode" method="POST">
+              <button type="submit" class="btn ${streakStats.manuallyUpdated ? '' : 'btn-outline'}">
+                ${streakStats.manuallyUpdated ? 'Manual' : 'Auto'}
+              </button>
+            </form>
           </div>
 
           <div class="actions">
-            <a href="/update-strava-activity" class="action-card">
+            <a href="/update-streakstats" class="action-card">
+              <i class="fas fa-sync-alt"></i>
+              <h3>Update Everything</h3>
+              <p>Process new runs & stats</p>
+            </a>
+            
+            <a href="/push-to-strava" class="action-card">
               <i class="fas fa-sync"></i>
               <h3>Update Strava</h3>
-              <p>Refresh latest activity</p>
+              <p>Refresh activity description</p>
             </a>
             
-            <a href="/stats" class="action-card">
-              <i class="fas fa-chart-line"></i>
-              <h3>View Stats</h3>
-              <p>Running statistics</p>
-            </a>
-            
-            <a href="/setup-webhook" class="action-card">
-              <i class="fas fa-plug"></i>
-              <h3>Setup Webhook</h3>
-              <p>Automatic updates</p>
+            <a href="/manual-streakstats-update" class="action-card">
+              <i class="fas fa-edit"></i>
+              <h3>Manual Update</h3>
+              <p>Edit values manually</p>
             </a>
             
             <a href="/debug" class="action-card">
@@ -246,11 +211,11 @@ router.get('/xapp', async (req, res) => {
           </div>
 
           <div class="status-card">
-            <h3>Maintenance</h3>
+            <h3>Quick Actions</h3>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem;">
-              <a href="/manual-streak-update" class="btn btn-outline">Manual Streak Update</a>
-              <a href="/manual-stats-update" class="btn btn-outline">Manual Stats Update</a>
-              <a href="/update-strava-activity" class="btn btn-outline">Update Latest Activity</a>
+              <a href="/update" class="btn btn-outline">Complete Update</a>
+              <a href="/manual-streakstats-update" class="btn btn-outline">Manual Edit</a>
+              <a href="/push-to-strava" class="btn btn-outline">Push to Strava</a>
               <a href="/health" class="btn btn-outline">System Health</a>
               <a href="/debug" class="btn btn-outline">Debug Dashboard</a>
             </div>
