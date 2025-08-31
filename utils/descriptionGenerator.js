@@ -14,7 +14,6 @@ async function generateDescription(streakStats, activityId) {
     const monthlyCelebration = monthlyGoalPercent >= 100 ? ' 🎉' : '';
     const yearlyCelebration = yearlyGoalPercent >= 100 ? ' 🎉' : '';
     
-// ADD TOTAL TIME TO DESCRIPTION
     const description = `🏃🏻‍♂️Daily Run Streak: Day ${streakStats.currentStreak} 👍🏻
 📊 ${metersToKm(streakStats.totalDistance)} km | ⏱️ ${formatTime(streakStats.totalTime)} | ⛰️ ${Math.round(streakStats.totalElevation)} m
 Monthly: ${metersToKm(streakStats.monthlyDistance)}/${metersToKm(streakStats.monthlyGoal)} km | ⛰️ ${Math.round(streakStats.monthlyElevation)} m
@@ -31,7 +30,7 @@ ${generateProgressBars(streakStats.yearlyDistance, streakStats.yearlyGoal, 'year
   } catch (error) {
     console.error('Error generating description:', error.message);
     
-    // Fallback description with time
+    // Fallback description
     return `🏃🏻‍♂️Daily Run Streak: Day ${streakStats.currentStreak} 👍🏻
 📊 ${metersToKm(streakStats.totalDistance)} km | ⏱️ ${formatTime(streakStats.totalTime)} | ⛰️ ${Math.round(streakStats.totalElevation)} m
 📷 @DailyRunGuy`;
