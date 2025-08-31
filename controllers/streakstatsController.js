@@ -19,8 +19,8 @@ async function updateStreakStatsWithRun(activity) {
         // Update totals
         streakStats.totalRuns += 1;
         streakStats.totalDistance += activity.distance;
-        streakStats.totalElevation += activity.total_elevation_gain || 0;
         streakStats.totalTime += activity.moving_time || activity.elapsed_time || 0;
+        streakStats.totalElevation += activity.total_elevation_gain || 0;
         
         // Update monthly/yearly stats
         const activityMonth = new Date(activity.start_date).getMonth();
