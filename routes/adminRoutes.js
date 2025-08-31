@@ -73,46 +73,6 @@ router.get('/xapp', async (req, res) => {
     
     const message = req.query.message;
     const error = req.query.error;
-    
-    const authStatus = tokenInfo.hasTokens 
-      ? `<div class="auth-status connected">
-           <span class="status-dot"></span>
-           Connected as: ${tokenInfo.athlete.firstname} ${tokenInfo.athlete.lastname}
-           <a href="/auth/status" class="btn btn-sm btn-outline">Account</a>
-           <a href="/auth/logout" class="btn btn-sm btn-outline">Logout</a>
-         </div>`
-      : `<div class="auth-status disconnected">
-           <span class="status-dot"></span>
-           Not authenticated
-           <a href="/auth/strava" class="btn btn-sm btn-primary">Connect Strava</a>
-         </div>`;
-    
-    const redisStatus = redisHealth 
-      ? `<div class="status-item success">
-           <span class="status-dot"></span>
-           Redis: Connected
-         </div>`
-      : `<div class="status-item error">
-           <span class="status-dot"></span>
-           Redis: Disconnected
-           <a href="/redis-status" class="btn btn-sm btn-outline">Check</a>
-         </div>`;
-
-    const lastActivityInfo = lastActivity.date 
-      ? `<div class="status-item success">
-           <span class="status-dot"></span>
-           Last Processed: ${new Date(lastActivity.date).toLocaleString()} (${lastActivity.type})
-           <form action="/refresh-last-activity" method="POST" style="display: inline; margin-left: 10px;">
-             <button type="submit" class="btn btn-sm btn-outline">Get Latest Activity</button>
-           </form>
-         </div>`
-      : `<div class="status-item">
-           <span class="status-dot"></span>
-           Last Activity: None recorded
-           <form action="/refresh-last-activity" method="POST" style="display: inline; margin-left: 10px;">
-             <button type="submit" class="btn btn-sm btn-outline">Get Latest Activity</button>
-           </form>
-         </div>`;
 
     res.send(`
       <!DOCTYPE html>
@@ -123,221 +83,176 @@ router.get('/xapp', async (req, res) => {
         <title>Admin - Strava Run Streak</title>
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
         <style>
-          :root {
-            --primary: #667eea;
-            --secondary: #764ba2;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-            --dark: #1f2937;
-            --light: #f8fafc;
-            --gray: #6b7280;
-            --border: #e5e7eb;
-          }
-          
           * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #1f2937; line-height: 1.6; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                 background: #f8fafc; color: #1f2937; line-height: 1.6; padding: 20px; }
           
-          .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-          .header { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 2rem; }
-          .header h1 { color: var(--dark); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.75rem; }
-          .header h1 i { color: var(--primary); }
+          .container { max-width: 1000px; margin: 0 auto; }
+          .header { text-align: center; margin-bottom: 2rem; }
+          .header h1 { color: #1f2937; margin-bottom: 1rem; }
           
-          .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-          .card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-          .card-header { display: flex; justify-content: between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border); }
-          .card-header h2 { color: var(--dark); font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem; }
+          .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+          .status-card { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+          .status-card h3 { margin-bottom: 0.5rem; color: #374151; }
           
-          .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-          .status-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: var(--light); border-radius: 8px; }
-          .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-          .status-dot.success { background: var(--success); }
-          .status-dot.error { background: var(--error); }
-          .status-dot.warning { background: var(--warning); }
-          
-          .auth-status { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: var(--light); border-radius: 8px; margin-bottom: 1rem; }
-          .auth-status.connected { border-left: 4px solid var(--success); }
-          .auth-status.disconnected { border-left: 4px solid var(--error); }
-          
-          .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-weight: 500; transition: all 0.2s; border: none; cursor: pointer; }
+          .btn { display: inline-block; padding: 0.5rem 1rem; background: #3b82f6; color: white; 
+                text-decoration: none; border-radius: 6px; border: none; cursor: pointer; margin: 0.25rem; }
+          .btn:hover { background: #2563eb; }
           .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.875rem; }
-          .btn-primary { background: var(--primary); color: white; }
-          .btn-primary:hover { background: #5a67d8; }
-          .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--gray); }
-          .btn-outline:hover { background: var(--light); border-color: var(--gray); }
-          .btn-success { background: var(--success); color: white; }
-          .btn-success:hover { background: #059669; }
-          .btn-warning { background: var(--warning); color: white; }
-          .btn-warning:hover { background: #d97706; }
+          .btn-outline { background: transparent; border: 1px solid #d1d5db; color: #374151; }
+          .btn-outline:hover { background: #f9fafb; }
           
-          .mode-toggle { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--light); border-radius: 8px; margin-bottom: 1rem; }
-          .mode-toggle:last-child { margin-bottom: 0; }
-          .mode-info { flex: 1; }
-          .mode-info h3 { font-size: 1rem; margin-bottom: 0.25rem; }
-          .mode-info p { font-size: 0.875rem; color: var(--gray); }
+          .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0; }
+          .stat { text-align: center; padding: 1rem; background: #f9fafb; border-radius: 8px; }
+          .stat-value { font-size: 1.5rem; font-weight: bold; color: #3b82f6; }
+          .stat-label { font-size: 0.875rem; color: #6b7280; }
           
-          .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
-          .switch input { opacity: 0; width: 0; height: 0; }
-          .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--gray); transition: .4s; border-radius: 24px; }
-          .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-          input:checked + .slider { background-color: var(--success); }
-          input:checked + .slider:before { transform: translateX(26px); }
-          
-          .actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
-          .action-card { background: var(--light; padding: 1.25rem; border-radius: 8px; text-align: center; transition: transform 0.2s; }
+          .actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 2rem 0; }
+          .action-card { background: white; padding: 1.5rem; border-radius: 8px; text-align: center; 
+                       box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s; }
           .action-card:hover { transform: translateY(-2px); }
-          .action-card i { font-size: 1.5rem; margin-bottom: 0.75rem; color: var(--primary); }
-          .action-card h3 { font-size: 0.875rem; margin-bottom: 0.5rem; }
+          .action-card i { font-size: 2rem; color: #3b82f6; margin-bottom: 1rem; }
           
-          .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem; }
-          .stat-item { text-align: center; padding: 1rem; background: var(--light); border-radius: 8px; }
-          .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
-          .stat-label { font-size: 0.875rem; color: var(--gray); }
+          .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+          .toggle-item { background: #f9fafb; padding: 1rem; border-radius: 8px; display: flex; 
+                       justify-content: space-between; align-items: center; }
           
-          @media (max-width: 768px) {
-            .grid { grid-template-columns: 1fr; }
-            .status-grid { grid-template-columns: 1fr; }
-          }
+          .success { color: #10b981; }
+          .error { color: #ef4444; }
+          .warning { color: #f59e0b; }
+          
+          .message { padding: 1rem; border-radius: 8px; margin: 1rem 0; }
+          .message.success { background: #ecfdf5; border: 1px solid #10b981; }
+          .message.error { background: #fef2f2; border: 1px solid #ef4444; }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
             <h1><i class="fas fa-running"></i> Strava Run Streak Admin</h1>
-            <div class="status-grid">
-              ${authStatus}
-              ${redisStatus}
-              ${lastActivityInfo}
-            </div>
-            ${message ? `<div class="status-item success" style="margin-bottom: 1rem;">
-              <span class="status-dot"></span>
-              ${message}
-            </div>` : ''}
-            ${error ? `<div class="status-item error" style="margin-bottom: 1rem;">
-              <span class="status-dot"></span>
-              ${error}
-            </div>` : ''}
           </div>
-          
-          <div class="grid">
-            <div class="card">
-              <div class="card-header">
-                <h2><i class="fas fa-cog"></i> Update Modes</h2>
-              </div>
-              
-              <div class="mode-toggle">
-                <div class="mode-info">
-                  <h3>Stats Update Mode</h3>
-                  <p>${statsData.manuallyUpdated ? 'Manual - Your values are preserved' : 'Auto - Updates with new runs'}</p>
-                </div>
-                <form action="/toggle-stats-mode" method="POST" style="display: inline;">
-                  <label class="switch">
-                    <input type="checkbox" ${statsData.manuallyUpdated ? 'checked' : ''} onchange="this.form.submit()">
-                    <span class="slider"></span>
-                  </label>
-                </form>
-              </div>
-              
-              <div class="mode-toggle">
-                <div class="mode-info">
-                  <h3>Streak Update Mode</h3>
-                  <p>${streakData.manuallyUpdated ? 'Manual - Your values are preserved' : 'Auto - Updates with new runs'}</p>
-                </div>
-                <form action="/toggle-streak-mode" method="POST" style="display: inline;">
-                  <label class="switch">
-                    <input type="checkbox" ${streakData.manuallyUpdated ? 'checked' : ''} onchange="this.form.submit()">
-                    <span class="slider"></span>
-                  </label>
-                </form>
-              </div>
+
+          ${message ? `<div class="message success">${message}</div>` : ''}
+          ${error ? `<div class="message error">${error}</div>` : ''}
+
+          <div class="status-grid">
+            <div class="status-card">
+              <h3>Authentication</h3>
+              <p>${tokenInfo.hasTokens ? 
+                `<span class="success">Connected as ${tokenInfo.athlete.firstname} ${tokenInfo.athlete.lastname}</span><br>
+                 <a href="/auth/status" class="btn btn-sm btn-outline">Account</a>
+                 <a href="/auth/logout" class="btn btn-sm btn-outline">Logout</a>` : 
+                `<span class="error">Not authenticated</span><br>
+                 <a href="/auth/strava" class="btn btn-sm">Connect Strava</a>`}
+              </p>
             </div>
             
-            <div class="card">
-              <div class="card-header">
-                <h2><i class="fas fa-fire"></i> Streak Overview</h2>
-              </div>
-              
-              <div class="stats-grid">
-                <div class="stat-item">
-                  <div class="stat-value">${streakData.currentStreak}</div>
-                  <div class="stat-label">Current Streak</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-value">${streakData.longestStreak}</div>
-                  <div class="stat-label">Longest Streak</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-value">${streakData.totalRuns}</div>
-                  <div class="stat-label">Total Runs</div>
-                </div>
-              </div>
-              
-              <div style="margin-top: 1rem;">
-                <a href="/streak-details" class="btn btn-outline btn-sm">
-                  <i class="fas fa-chart-bar"></i> View Details
-                </a>
-                <a href="/manual-streak-update" class="btn btn-outline btn-sm">
-                  <i class="fas fa-edit"></i> Manual Update
-                </a>
-              </div>
-            </div>
-          </div>
-          
-          <div class="grid">
-            <div class="card">
-              <div class="card-header">
-                <h2><i class="fas fa-tachometer-alt"></i> Quick Actions</h2>
-              </div>
-              
-              <div class="actions-grid">
-                <a href="/update-strava-activity" class="action-card">
-                  <i class="fas fa-sync"></i>
-                  <h3>Update Strava</h3>
-                  <p>Refresh latest activity</p>
-                </a>
-                
-                <a href="/stats" class="action-card">
-                  <i class="fas fa-chart-line"></i>
-                  <h3>View Stats</h3>
-                  <p>Running statistics</p>
-                </a>
-                
-                <a href="/setup-webhook" class="action-card">
-                  <i class="fas fa-plug"></i>
-                  <h3>Setup Webhook</h3>
-                  <p>Automatic updates</p>
-                </a>
-                
-                <a href="/debug" class="action-card">
-                  <i class="fas fa-bug"></i>
-                  <h3>Debug</h3>
-                  <p>Troubleshooting tools</p>
-                </a>
-              </div>
+            <div class="status-card">
+              <h3>Redis Status</h3>
+              <p>${redisHealth ? 
+                `<span class="success">Connected to Upstash</span>` : 
+                `<span class="error">Disconnected</span><br>
+                 <a href="/redis-status" class="btn btn-sm btn-outline">Check</a>`}
+              </p>
             </div>
             
-            <div class="card">
-              <div class="card-header">
-                <h2><i class="fas fa-wrench"></i> Maintenance</h2>
+            <div class="status-card">
+              <h3>Last Activity</h3>
+              <p>${lastActivity.date ? 
+                `${new Date(lastActivity.date).toLocaleString()} (${lastActivity.type})<br>
+                 <form action="/refresh-last-activity" method="POST" style="display: inline;">
+                   <button type="submit" class="btn btn-sm">Refresh</button>
+                 </form>` : 
+                `None recorded<br>
+                 <form action="/refresh-last-activity" method="POST" style="display: inline;">
+                   <button type="submit" class="btn btn-sm">Check Strava</button>
+                 </form>`}
+              </p>
+            </div>
+          </div>
+
+          <div class="status-card">
+            <h3>Streak Overview</h3>
+            <div class="stats-grid">
+              <div class="stat">
+                <div class="stat-value">${streakData.currentStreak}</div>
+                <div class="stat-label">Current Streak</div>
               </div>
-              
-              <div style="display: grid; gap: 0.75rem;">
-                <a href="/manual-streak-update" class="btn btn-outline">
-                  <i class="fas fa-edit"></i> Manual Streak Update
-                </a>
-                <a href="/manual-stats-update" class="btn btn-outline">
-                  <i class="fas fa-sliders-h"></i> Manual Stats Update
-                </a>
-                <a href="/update-strava-activity" class="btn btn-outline">
-                  <i class="fas fa-sync"></i> Update Latest Activity
-                </a>
-                <a href="/health" class="btn btn-outline">
-                  <i class="fas fa-heartbeat"></i> System Health
-                </a>
-                <a href="/debug" class="btn btn-outline">
-                  <i class="fas fa-tools"></i> Debug Dashboard
-                </a>
+              <div class="stat">
+                <div class="stat-value">${streakData.longestStreak}</div>
+                <div class="stat-label">Longest Streak</div>
               </div>
+              <div class="stat">
+                <div class="stat-value">${streakData.totalRuns}</div>
+                <div class="stat-label">Total Runs</div>
+              </div>
+            </div>
+            <div style="text-align: center; margin-top: 1rem;">
+              <a href="/streak-details" class="btn btn-outline">View Details</a>
+              <a href="/manual-streak-update" class="btn btn-outline">Manual Update</a>
+            </div>
+          </div>
+
+          <div class="toggle-grid">
+            <div class="toggle-item">
+              <div>
+                <h3>Stats Update Mode</h3>
+                <p>${statsData.manuallyUpdated ? 'Manual - Values preserved' : 'Auto - Updates with runs'}</p>
+              </div>
+              <form action="/toggle-stats-mode" method="POST">
+                <button type="submit" class="btn ${statsData.manuallyUpdated ? '' : 'btn-outline'}">
+                  ${statsData.manuallyUpdated ? 'Manual' : 'Auto'}
+                </button>
+              </form>
+            </div>
+            
+            <div class="toggle-item">
+              <div>
+                <h3>Streak Update Mode</h3>
+                <p>${streakData.manuallyUpdated ? 'Manual - Values preserved' : 'Auto - Updates with runs'}</p>
+              </div>
+              <form action="/toggle-streak-mode" method="POST">
+                <button type="submit" class="btn ${streakData.manuallyUpdated ? '' : 'btn-outline'}">
+                  ${streakData.manuallyUpdated ? 'Manual' : 'Auto'}
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div class="actions">
+            <a href="/update-strava-activity" class="action-card">
+              <i class="fas fa-sync"></i>
+              <h3>Update Strava</h3>
+              <p>Refresh latest activity</p>
+            </a>
+            
+            <a href="/stats" class="action-card">
+              <i class="fas fa-chart-line"></i>
+              <h3>View Stats</h3>
+              <p>Running statistics</p>
+            </a>
+            
+            <a href="/setup-webhook" class="action-card">
+              <i class="fas fa-plug"></i>
+              <h3>Setup Webhook</h3>
+              <p>Automatic updates</p>
+            </a>
+            
+            <a href="/debug" class="action-card">
+              <i class="fas fa-bug"></i>
+              <h3>Debug</h3>
+              <p>Troubleshooting tools</p>
+            </a>
+          </div>
+
+          <div class="status-card">
+            <h3>Maintenance</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem;">
+              <a href="/manual-streak-update" class="btn btn-outline">Manual Streak Update</a>
+              <a href="/manual-stats-update" class="btn btn-outline">Manual Stats Update</a>
+              <a href="/update-strava-activity" class="btn btn-outline">Update Latest Activity</a>
+              <a href="/health" class="btn btn-outline">System Health</a>
+              <a href="/debug" class="btn btn-outline">Debug Dashboard</a>
             </div>
           </div>
         </div>
