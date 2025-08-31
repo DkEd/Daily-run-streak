@@ -6,7 +6,8 @@ const webhookRoutes = require('./routes/webhookRoutes');
 const manualRoutes = require('./routes/manualRoutes');
 const debugRoutes = require('./routes/debugRoutes');
 const stravaAuth = require('./services/stravaAuth');
-const { initializeData, healthCheck, loadStatsData, loadStreakData, saveStatsData, saveStreakData, getLastActivity } = require('./config/storage');
+const stravaApi = require('./services/stravaApi');
+const { initializeData, healthCheck, loadStatsData, loadStreakData, saveStatsData, saveStreakData, getLastActivity, saveLastActivity } = require('./config/storage');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -49,6 +50,36 @@ app.get('/redis-status', async (req, res) => {
     res.send('<h1>Redis Status: Connected to Upstash ✅</h1><a href="/xapp">Back to App</a>');
   } else {
     res.status(500).send('<h1>Redis Status: Disconnected ❌</h1><p>Check your Redis configuration</p><a href="/xapp">Back to App</a>');
+  }
+});
+
+// Refresh last activity from Strava - MUST BE DEFINED BEFORE /xapp ROUTE
+app.post('/refresh-last-activity', async (req, res) => {
+  try {
+    if (!await stravaAuth.isAuthenticated()) {
+      return res.redirect('/auth/strava');
+    }
+    
+    const activities = await stravaApi.getRecentActivities(1);
+    
+    if (activities.length > 0) {
+      const activity = activities[0];
+      
+      await saveLastActivity({
+        id: activity.id,
+        date: activity.start_date,
+        type: activity.type,
+        distance: activity.distance
+      });
+      
+      console.log('Refreshed last activity from Strava:', activity.id, activity.type);
+      res.redirect('/xapp?message=Latest activity refreshed from Strava');
+    } else {
+      res.redirect('/xapp?error=No activities found on Strava');
+    }
+  } catch (error) {
+    console.error('Error refreshing last activity:', error.message);
+    res.redirect('/xapp?error=Failed to refresh activity: ' + error.message);
   }
 });
 
@@ -237,7 +268,6 @@ app.get('/xapp', async (req, res) => {
             </div>` : ''}
           </div>
           
-          <!-- Rest of the HTML remains the same -->
           <div class="grid">
             <div class="card">
               <div class="card-header">
