@@ -24,6 +24,8 @@ router.get('/update-streak', async (req, res) => {
     res.send(`
       <h1>Streak Update</h1>
       <p><strong>Status:</strong> ${result.message}</p>
+      <p><strong>Last Run Date:</strong> ${result.lastRunDate || 'Not set'}</p>
+      <p><strong>Current Date:</strong> ${new Date().toDateString()}</p>
       <h2>Current Streak Data:</h2>
       <pre>${JSON.stringify(result, null, 2)}</pre>
       <p><a href="/streak-details">View Detailed Streak Info</a> | <a href="/xapp">Back to App</a></p>
@@ -48,7 +50,7 @@ router.get('/update-streak', async (req, res) => {
   }
 });
 
-// Fix this route to only update the MOST RECENT activity, not all activities
+// Add this new route to force update Strava activities
 router.get('/update-strava-activity', async (req, res) => {
   try {
     if (!await stravaAuth.isAuthenticated()) {
@@ -90,8 +92,11 @@ router.get('/update-strava-activity', async (req, res) => {
 router.get('/streak-status', async (req, res) => {
   try {
     const streak = await getCurrentStreak();
+    const streakData = await getAllStreakData();
     res.send(`
       <h1>Current Streak: ${streak} days 🔥</h1>
+      <p><strong>Last Run Date:</strong> ${streakData.lastRunDate || 'No runs yet'}</p>
+      <p><strong>Current Date:</strong> ${new Date().toDateString()}</p>
       <p><a href="/streak-details">View Detailed Streak Info</a> | <a href="/xapp">Back to App</a></p>
     `);
   } catch (error) {
@@ -106,6 +111,9 @@ router.get('/streak-status', async (req, res) => {
 router.get('/streak-details', async (req, res) => {
   try {
     const data = await getAllStreakData();
+    const currentDate = new Date();
+    const lastRunRelative = data.lastRunDate ? Math.floor((currentDate - new Date(data.lastRunDate)) / (1000 * 3600 * 24)) : 'Never';
+    
     res.send(`
       <h1>Streak Details</h1>
       <h2>Current Status</h2>
@@ -119,6 +127,10 @@ router.get('/streak-details', async (req, res) => {
       <p><strong>Last Run Date:</strong> ${data.lastRunDate || 'No runs yet'}</p>
       <p><strong>Manually Updated:</strong> ${data.manuallyUpdated ? 'Yes' : 'No'}</p>
       ${data.lastManualUpdate ? `<p><strong>Last Manual Update:</strong> ${data.lastManualUpdate}</p>` : ''}
+      
+      <h2>Debug Info</h2>
+      <p><strong>Current Date:</strong> ${currentDate.toDateString()}</p>
+      <p><strong>Last Run Relative:</strong> ${lastRunRelative} ${lastRunRelative !== 'Never' ? 'days ago' : ''}</p>
       
       <h2>Raw Data</h2>
       <pre>${JSON.stringify(data, null, 2)}</pre>
