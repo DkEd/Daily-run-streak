@@ -31,9 +31,11 @@ router.get('/update-streakstats', async (req, res) => {
                  background: #f8fafc; color: #1f2937; padding: 20px; }
           .container { max-width: 800px; margin: 0 auto; }
           .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+          .stat { display: inline-block; padding: 1rem; margin: 0.5rem; background: #f9fafb; border-radius: 8px; text-align: center; }
+          .stat-value { font-size: 1.5rem; font-weight: bold; color: #3b82f6; }
+          .stat-label { font-size: 0.875rem; color: #6b7280; }
           .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #3b82f6; color: white; 
                 text-decoration: none; border-radius: 6px; margin: 0.5rem; }
-          .btn:hover { background: #2563eb; }
         </style>
       </head>
       <body>
@@ -42,11 +44,25 @@ router.get('/update-streakstats', async (req, res) => {
           
           <div class="card">
             <h2>Update Results</h2>
-            <p><strong>Current Streak:</strong> ${result.currentStreak} days</p>
-            <p><strong>Total Runs:</strong> ${result.totalRuns}</p>
+            <div class="stat">
+              <div class="stat-value">${result.currentStreak}</div>
+              <div class="stat-label">Current Streak</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value">${result.totalRuns}</div>
+              <div class="stat-label">Total Runs</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value">${metersToKm(result.totalDistance)}</div>
+              <div class="stat-label">Total Distance</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value">${formatTime(result.totalTime)}</div>
+              <div class="stat-label">Total Time</div>
+            </div>
+            
             <p><strong>Last Run:</strong> ${result.lastRunDate || 'Never'}</p>
-            <p><strong>Monthly Distance:</strong> ${metersToKm(result.monthlyDistance)} km</p>
-            <p><strong>Yearly Distance:</strong> ${metersToKm(result.yearlyDistance)} km</p>
+            <p><strong>Mode:</strong> ${result.manuallyUpdated ? 'Manual' : 'Auto'}</p>
           </div>
 
           <div>
@@ -66,25 +82,31 @@ router.get('/update-streakstats', async (req, res) => {
 // Push to Strava description
 router.get('/push-to-strava', async (req, res) => {
   try {
+    if (!await stravaAuth.isAuthenticated()) {
+      return res.send('<h1>Not Authenticated</h1><p><a href="/auth/strava">Authenticate with Strava first</a></p>');
+    }
+    
     const result = await pushToStravaDescription();
+    
     res.send(`
       <!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Strava Updated</title>
+        <title>Strava Description Updated</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
                  background: #f8fafc; color: #1f2937; padding: 20px; }
           .container { max-width: 800px; margin: 0 auto; }
+          .success { color: #10b981; }
           .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #3b82f6; color: white; 
                 text-decoration: none; border-radius: 6px; margin: 0.5rem; }
         </style>
       </head>
       <body>
         <div class="container">
-          <h1>Strava Description Updated ✅</h1>
+          <h1>Strava Description Updated <span class="success">✅</span></h1>
           <p>${result.success ? 'Successfully updated activity description' : result.message}</p>
           ${result.activityId ? `<p><strong>Activity ID:</strong> ${result.activityId}</p>` : ''}
           
@@ -104,6 +126,10 @@ router.get('/push-to-strava', async (req, res) => {
 // Manual update page
 router.get('/manual-streakstats-update', async (req, res) => {
   try {
+    if (!await stravaAuth.isAuthenticated()) {
+      return res.send('<h1>Not Authenticated</h1><p><a href="/auth/strava">Authenticate with Strava first</a></p>');
+    }
+    
     const streakStats = await loadStreakStats();
     
     res.send(`
@@ -112,7 +138,7 @@ router.get('/manual-streakstats-update', async (req, res) => {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Manual Update - Strava Run Streak</title>
+        <title>Manual StreakStats Update</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
                  background: #f8fafc; color: #1f2937; padding: 20px; }
@@ -131,11 +157,10 @@ router.get('/manual-streakstats-update', async (req, res) => {
       <body>
         <div class="container">
           <h1>Manual StreakStats Update</h1>
-          <p>Update your running statistics manually. Changes will be preserved when manually updated is enabled.</p>
           
           <form action="/manual-streakstats-update" method="POST">
             <div class="section">
-              <h2>Streak Data</h2>
+              <h3>Streak Data</h3>
               <div class="form-group">
                 <label for="currentStreak">Current Streak (days):</label>
                 <input type="number" id="currentStreak" name="currentStreak" value="${streakStats.currentStreak}" required>
@@ -151,7 +176,7 @@ router.get('/manual-streakstats-update', async (req, res) => {
             </div>
             
             <div class="section">
-              <h2>Totals</h2>
+              <h3>Totals</h3>
               <div class="form-group">
                 <label for="totalRuns">Total Runs:</label>
                 <input type="number" id="totalRuns" name="totalRuns" value="${streakStats.totalRuns}" required>
@@ -163,6 +188,7 @@ router.get('/manual-streakstats-update', async (req, res) => {
               <div class="form-group">
                 <label for="totalTime">Total Time (seconds):</label>
                 <input type="number" id="totalTime" name="totalTime" value="${streakStats.totalTime || 0}" required>
+                <small>Current: ${formatTime(streakStats.totalTime || 0)}</small>
               </div>
               <div class="form-group">
                 <label for="totalElevation">Total Elevation (meters):</label>
@@ -171,7 +197,7 @@ router.get('/manual-streakstats-update', async (req, res) => {
             </div>
             
             <div class="section">
-              <h2>Monthly Stats</h2>
+              <h3>Monthly Stats</h3>
               <div class="form-group">
                 <label for="monthlyDistance">Monthly Distance (km):</label>
                 <input type="number" step="0.1" id="monthlyDistance" name="monthlyDistance" value="${metersToKm(streakStats.monthlyDistance)}" required>
@@ -187,7 +213,7 @@ router.get('/manual-streakstats-update', async (req, res) => {
             </div>
             
             <div class="section">
-              <h2>Yearly Stats</h2>
+              <h3>Yearly Stats</h3>
               <div class="form-group">
                 <label for="yearlyDistance">Yearly Distance (km):</label>
                 <input type="number" step="0.1" id="yearlyDistance" name="yearlyDistance" value="${metersToKm(streakStats.yearlyDistance)}" required>
@@ -215,72 +241,61 @@ router.get('/manual-streakstats-update', async (req, res) => {
           
           <div style="margin-top: 2rem;">
             <a href="/xapp" class="btn">Back to Admin</a>
-            <a href="/update-streakstats" class="btn">Auto Update</a>
-            <a href="/push-to-strava" class="btn">Update Strava</a>
+            <a href="/push-to-strava" class="btn">Update Strava Description</a>
           </div>
         </div>
       </body>
       </html>
     `);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">App</a>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
   }
 });
 
 router.post('/manual-streakstats-update', async (req, res) => {
   try {
+    if (!await stravaAuth.isAuthenticated()) {
+      return res.send('<h1>Not Authenticated</h1><p><a href="/auth/strava">Authenticate with Strava first</a></p>');
+    }
+    
     const result = await manuallyUpdateStreakStats(req.body);
+    
     res.send(`
       <!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Update Complete</title>
+        <title>Manual Update Result</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
                  background: #f8fafc; color: #1f2937; padding: 20px; }
           .container { max-width: 800px; margin: 0 auto; }
-          .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+          .success { color: #10b981; }
           .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #3b82f6; color: white; 
                 text-decoration: none; border-radius: 6px; margin: 0.5rem; }
         </style>
       </head>
       <body>
         <div class="container">
-          <h1>Manual Update Complete ✅</h1>
+          <h1>Manual Update Result <span class="success">✅</span></h1>
+          <p>StreakStats updated manually. Your values will be preserved.</p>
           
-          <div class="card">
-            <h2>Update Results</h2>
-            <p>StreakStats updated manually. Your values will be preserved.</p>
-            <pre>${JSON.stringify(result.data, null, 2)}</pre>
-          </div>
-
-          <div>
+          <h2>Updated Data:</h2>
+          <pre>${JSON.stringify(result.data, null, 2)}</pre>
+          
+          <div style="margin-top: 2rem;">
             <a href="/xapp" class="btn">Back to Admin</a>
+            <a href="/push-to-strava" class="btn">Update Strava Description</a>
             <a href="/manual-streakstats-update" class="btn">Edit Again</a>
-            <a href="/push-to-strava" class="btn">Update Strava</a>
           </div>
         </div>
       </body>
       </html>
     `);
   } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">App</a>`);
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">Back to App</a>`);
   }
-});
-
-// Redirect old manual endpoints to new ones
-router.get('/manual-streak-update', (req, res) => {
-  res.redirect('/manual-streakstats-update');
-});
-
-router.get('/manual-stats-update', (req, res) => {
-  res.redirect('/manual-streakstats-update');
-});
-
-router.get('/manual-update', (req, res) => {
-  res.redirect('/manual-streakstats-update');
 });
 
 module.exports = router;
