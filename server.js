@@ -1,12 +1,12 @@
 const express = require('express');
 const authRoutes = require('./routes/authRoutes');
-const streakRoutes = require('./routes/streakRoutes');
-const statsRoutes = require('./routes/statsRoutes');
+const streakstatsRoutes = require('./routes/streakstatsRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const manualRoutes = require('./routes/manualRoutes');
 const debugRoutes = require('./routes/debugRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const stravaAuth = require('./services/stravaAuth');
 const { initializeData, healthCheck } = require('./config/storage');
 
 const app = express();
@@ -27,8 +27,7 @@ initializeData().then(() => {
 // Routes
 app.use('/', publicRoutes);
 app.use('/', authRoutes);
-app.use('/', streakRoutes);
-app.use('/', statsRoutes);
+app.use('/', streakstatsRoutes);
 app.use('/', webhookRoutes);
 app.use('/', manualRoutes);
 app.use('/', debugRoutes);
