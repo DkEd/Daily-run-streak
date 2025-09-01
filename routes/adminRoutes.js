@@ -2,6 +2,7 @@ const express = require('express');
 const stravaAuth = require('../services/stravaAuth');
 const stravaApi = require('../services/stravaApi');
 const { healthCheck, loadStreakStats, saveStreakStats, getLastActivity, saveLastActivity } = require('../config/storage');
+const { formatTime, metersToKm } = require('../utils/formatters');
 const router = express.Router();
 
 // Refresh last activity from Strava
@@ -56,6 +57,18 @@ router.get('/xapp', async (req, res) => {
     const lastActivity = await getLastActivity();
     const redisHealth = await healthCheck();
     
+    // Get the latest activity description from Strava
+    let latestDescription = 'No description available';
+    try {
+      if (lastActivity.id) {
+        const activity = await stravaApi.getActivity(lastActivity.id);
+        latestDescription = activity.description || 'No description available';
+      }
+    } catch (error) {
+      console.error('Error fetching activity description:', error.message);
+      latestDescription = 'Error loading description';
+    }
+    
     const message = req.query.message;
     const error = req.query.error;
 
@@ -107,6 +120,11 @@ router.get('/xapp', async (req, res) => {
           .message { padding: 1rem; border-radius: 8px; margin: 1rem 0; }
           .message.success { background: #ecfdf5; border: 1px solid #10b981; }
           .message.error { background: #fef2f2; border: 1px solid #ef4444; }
+          
+          .description-box { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+          .description-box h3 { margin-bottom: 0.5rem; color: #495057; }
+          .description-content { white-space: pre-wrap; font-family: monospace; font-size: 0.9rem; line-height: 1.4; }
+          .description-meta { font-size: 0.8rem; color: #6c757d; margin-top: 0.5rem; }
         </style>
       </head>
       <body>
@@ -169,6 +187,16 @@ router.get('/xapp', async (req, res) => {
                 <div class="stat-value">${streakStats.totalRuns}</div>
                 <div class="stat-label">Total Runs</div>
               </div>
+            </div>
+          </div>
+
+          <!-- Latest Description Box -->
+          <div class="description-box">
+            <h3><i class="fas fa-file-alt"></i> Latest Strava Description</h3>
+            <div class="description-content">${latestDescription.replace(/\n/g, '<br>')}</div>
+            <div class="description-meta">
+              ${lastActivity.date ? `From activity on ${new Date(lastActivity.date).toLocaleDateString()}` : 'No activity data'}
+              ${lastActivity.distance ? ` • ${metersToKm(lastActivity.distance)} km` : ''}
             </div>
           </div>
 
