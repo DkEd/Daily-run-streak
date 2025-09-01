@@ -192,4 +192,14 @@ router.post('/manual-streakstats-update', async (req, res) => {
       <h1>Manual Update Result</h1>
       <p>StreakStats updated manually. Your values will be preserved.</p>
       <p><strong>Total Time:</strong> ${formatTime(result.data.totalTime)}</p>
-      <pre>${JSON.stringify(result.data, null
+      <pre>${JSON.stringify(result.data, null, 2)}</pre>
+      <a href="/manual-streakstats-update">Edit Again</a> | 
+      <a href="/xapp">Back to Admin</a> | 
+      <a href="/push-to-strava">Push to Strava</a>
+    `);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">App</a>`);
+  }
+});
+
+module.exports = router;
