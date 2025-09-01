@@ -1,9 +1,12 @@
-const { loadStreakStats, saveStreakStats, saveLastActivity } = require('../config/storage');
 const stravaApi = require('../services/stravaApi');
 const { generateDescription } = require('../utils/descriptionGenerator');
 
-async function updateStreakStatsWithRun(activity) {
+// Remove the storage import here and accept it as a parameter in functions
+// This breaks the circular dependency
+
+async function updateStreakStatsWithRun(activity, storage) {
   try {
+    const { loadStreakStats, saveStreakStats } = storage;
     const streakStats = await loadStreakStats();
     const today = new Date();
     const todayDate = today.toDateString();
@@ -119,8 +122,9 @@ async function updateStreakStatsWithRun(activity) {
   }
 }
 
-async function manuallyUpdateStreakStats(updates) {
+async function manuallyUpdateStreakStats(updates, storage) {
   try {
+    const { loadStreakStats, saveStreakStats } = storage;
     const streakStats = await loadStreakStats();
     
     console.log('DEBUG: Manual update received:', updates);
@@ -171,8 +175,9 @@ async function manuallyUpdateStreakStats(updates) {
   }
 }
 
-async function pushToStravaDescription(activityId = null) {
+async function pushToStravaDescription(activityId, storage) {
   try {
+    const { loadStreakStats, saveLastActivity } = storage;
     const streakStats = await loadStreakStats();
     
     // If no activity ID provided, get the most recent one
@@ -202,6 +207,16 @@ async function pushToStravaDescription(activityId = null) {
     return { success: false, message: 'No run activity found' };
   } catch (error) {
     console.error('Error pushing to Strava description:', error.message);
+    throw error;
+  }
+}
+
+async function loadStreakStats(storage) {
+  try {
+    const { loadStreakStats: loadFromStorage } = storage;
+    return await loadFromStorage();
+  } catch (error) {
+    console.error('Error loading streakstats:', error.message);
     throw error;
   }
 }
