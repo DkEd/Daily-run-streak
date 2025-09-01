@@ -22,29 +22,64 @@ async function updateStreakStatsWithRun(activity) {
         streakStats.totalTime += activity.moving_time || activity.elapsed_time || 0;
         streakStats.totalElevation += activity.total_elevation_gain || 0;
         
-        // Update monthly/yearly stats
-        const activityMonth = new Date(activity.start_date).getMonth();
-        const activityYear = new Date(activity.start_date).getFullYear();
+        // Get current month/year for reset logic
         const currentMonth = today.getMonth();
         const currentYear = today.getFullYear();
+        const activityDateObj = new Date(activity.start_date);
+        const activityMonth = activityDateObj.getMonth();
+        const activityYear = activityDateObj.getFullYear();
         
-        // Reset monthly stats if it's a new month
+        console.log('DEBUG: Date check - Current:', {
+          month: currentMonth + 1,
+          year: currentYear
+        }, 'Activity:', {
+          month: activityMonth + 1, 
+          year: activityYear
+        });
+        
+        // Reset monthly stats if it's a new month AND the activity is in the current month
+        // Only reset if the activity is in the current month to avoid resetting when processing old activities
         if (activityMonth !== currentMonth || activityYear !== currentYear) {
-          streakStats.monthlyDistance = 0;
-          streakStats.monthlyElevation = 0;
+          console.log('DEBUG: Activity is from different month/year, not resetting monthly stats');
+        } else {
+          // Check if we need to reset monthly stats (new month)
+          const lastRunMonth = streakStats.lastRunDate ? new Date(streakStats.lastRunDate).getMonth() : null;
+          const lastRunYear = streakStats.lastRunDate ? new Date(streakStats.lastRunDate).getFullYear() : null;
+          
+          if (lastRunMonth !== null && lastRunYear !== null && 
+              (lastRunMonth !== currentMonth || lastRunYear !== currentYear)) {
+            console.log('DEBUG: Resetting monthly stats for new month');
+            streakStats.monthlyDistance = 0;
+            streakStats.monthlyElevation = 0;
+          }
         }
         
-        // Reset yearly stats if it's a new year
+        // Reset yearly stats if it's a new year AND the activity is in the current year
         if (activityYear !== currentYear) {
-          streakStats.yearlyDistance = 0;
-          streakStats.yearlyElevation = 0;
+          console.log('DEBUG: Activity is from different year, not resetting yearly stats');
+        } else {
+          // Check if we need to reset yearly stats (new year)
+          const lastRunYear = streakStats.lastRunDate ? new Date(streakStats.lastRunDate).getFullYear() : null;
+          
+          if (lastRunYear !== null && lastRunYear !== currentYear) {
+            console.log('DEBUG: Resetting yearly stats for new year');
+            streakStats.yearlyDistance = 0;
+            streakStats.yearlyElevation = 0;
+          }
         }
         
-        // Add to monthly/yearly totals
-        streakStats.monthlyDistance += activity.distance;
-        streakStats.yearlyDistance += activity.distance;
-        streakStats.monthlyElevation += activity.total_elevation_gain || 0;
-        streakStats.yearlyElevation += activity.total_elevation_gain || 0;
+        // Add to monthly/yearly totals (only if activity is in current period)
+        if (activityMonth === currentMonth && activityYear === currentYear) {
+          streakStats.monthlyDistance += activity.distance;
+          streakStats.monthlyElevation += activity.total_elevation_gain || 0;
+          console.log('DEBUG: Added to monthly - Distance:', activity.distance, 'Elevation:', activity.total_elevation_gain || 0);
+        }
+        
+        if (activityYear === currentYear) {
+          streakStats.yearlyDistance += activity.distance;
+          streakStats.yearlyElevation += activity.total_elevation_gain || 0;
+          console.log('DEBUG: Added to yearly - Distance:', activity.distance, 'Elevation:', activity.total_elevation_gain || 0);
+        }
         
         // Update streak logic
         const yesterday = new Date(today);
