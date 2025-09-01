@@ -4,6 +4,8 @@ const stravaApi = require('../services/stravaApi');
 const { updateStreakStatsWithRun, manuallyUpdateStreakStats, pushToStravaDescription, loadStreakStats } = require('../controllers/streakstatsController');
 const refreshDataMiddleware = require('../middleware/refreshData');
 const { metersToKm, formatTime } = require('../utils/formatters');
+const { loadStreakStats: loadFromStorage, saveStreakStats, saveLastActivity } = require('../config/storage');
+
 const router = express.Router();
 
 // Apply middleware
@@ -17,7 +19,10 @@ router.get('/update-streakstats', async (req, res) => {
     }
     
     const activities = await stravaApi.getRecentActivities(1);
-    const result = await updateStreakStatsWithRun(activities[0] || null);
+    const result = await updateStreakStatsWithRun(activities[0] || null, {
+      loadStreakStats: loadFromStorage,
+      saveStreakStats: saveStreakStats
+    });
     
     res.send(`
       <h1>StreakStats Updated</h1>
@@ -35,7 +40,10 @@ router.get('/update-streakstats', async (req, res) => {
 // Push to Strava description
 router.get('/push-to-strava', async (req, res) => {
   try {
-    const result = await pushToStravaDescription();
+    const result = await pushToStravaDescription(null, {
+      loadStreakStats: loadFromStorage,
+      saveLastActivity: saveLastActivity
+    });
     res.send(`
       <h1>Strava Description Updated</h1>
       <p>${result.success ? 'Successfully updated activity description' : result.message}</p>
@@ -49,7 +57,7 @@ router.get('/push-to-strava', async (req, res) => {
 // Manual update page WITH TOTAL TIME FIELD
 router.get('/manual-streakstats-update', async (req, res) => {
   try {
-    const streakStats = await loadStreakStats();
+    const streakStats = await loadFromStorage();
     
     res.send(`
       <!DOCTYPE html>
@@ -176,19 +184,12 @@ router.get('/manual-streakstats-update', async (req, res) => {
 
 router.post('/manual-streakstats-update', async (req, res) => {
   try {
-    const result = await manuallyUpdateStreakStats(req.body);
+    const result = await manuallyUpdateStreakStats(req.body, {
+      loadStreakStats: loadFromStorage,
+      saveStreakStats: saveStreakStats
+    });
     res.send(`
       <h1>Manual Update Result</h1>
       <p>StreakStats updated manually. Your values will be preserved.</p>
       <p><strong>Total Time:</strong> ${formatTime(result.data.totalTime)}</p>
-      <pre>${JSON.stringify(result.data, null, 2)}</pre>
-      <a href="/manual-streakstats-update">Edit Again</a> | 
-      <a href="/xapp">Back to Admin</a> | 
-      <a href="/push-to-strava">Push to Strava</a>
-    `);
-  } catch (error) {
-    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/xapp">App</a>`);
-  }
-});
-
-module.exports = router;
+      <pre>${JSON.stringify(result.data, null
