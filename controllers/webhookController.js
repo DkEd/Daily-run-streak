@@ -1,10 +1,11 @@
 const crypto = require('crypto');
 const stravaApi = require('../services/stravaApi');
-const { updateStreakStatsWithRun, pushToStravaDescription } = require('./streakstatsController');
-const { getLastActivity, saveLastActivity } = require('../config/storage');
 
-async function processActivity(activityId) {
+async function processActivity(activityId, controllers, storage) {
   try {
+    const { updateStreakStatsWithRun, pushToStravaDescription } = controllers;
+    const { getLastActivity, saveLastActivity } = storage;
+    
     const activity = await stravaApi.getActivity(activityId);
     
     // Only process if it's the most recent activity
@@ -15,10 +16,10 @@ async function processActivity(activityId) {
     if (!lastActivityDate || activityDate > lastActivityDate) {
       if (activity.type === 'Run') {
         // Update streakstats
-        await updateStreakStatsWithRun(activity);
+        await updateStreakStatsWithRun(activity, storage);
         
         // Update description
-        await pushToStravaDescription(activity.id);
+        await pushToStravaDescription(activity.id, storage);
         
         console.log('Processed NEW run activity:', activityId, `${(activity.distance / 1000).toFixed(1)} km`);
         return { message: "Run activity processed successfully" };
