@@ -1,7 +1,10 @@
 const express = require('express');
 const stravaApi = require('../services/stravaApi');
 const { processActivity, verifyWebhookSignature } = require('../controllers/webhookController');
-const { getWebhookConfig } = require('../config/storage');
+const { getWebhookConfig, getLastActivity, saveLastActivity } = require('../config/storage');
+const { updateStreakStatsWithRun, pushToStravaDescription } = require('../controllers/streakstatsController');
+const { loadStreakStats, saveStreakStats } = require('../config/storage');
+
 const router = express.Router();
 
 router.get('/webhook', async (req, res) => {
@@ -42,7 +45,15 @@ router.post('/webhook', async (req, res) => {
     console.log('Webhook received:', event.object_type, event.aspect_type, event.object_id);
     
     if (event.object_type === 'activity' && event.aspect_type === 'create') {
-      processActivity(event.object_id).catch(console.error);
+      processActivity(event.object_id, {
+        updateStreakStatsWithRun,
+        pushToStravaDescription
+      }, {
+        getLastActivity,
+        saveLastActivity,
+        loadStreakStats,
+        saveStreakStats
+      }).catch(console.error);
     }
     
     res.status(200).send('Webhook processed');

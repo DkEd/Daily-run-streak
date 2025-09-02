@@ -1,44 +1,39 @@
 const stravaApi = require('../services/stravaApi');
+const { loadStreakStats } = require('../controllers/streakstatsController');
 const { formatTime, generateProgressBars, cleanExistingDescription, metersToKm } = require('./formatters');
-const { loadStatsData } = require('../config/storage');
 
-async function generateDescription(streakData, activityId) {
+async function generateDescription(streakStats, activityId) {
   try {
     const activity = await stravaApi.getActivity(activityId);
     const existingDescription = cleanExistingDescription(activity.description);
     
-    const stats = await loadStatsData();
+    // Check if goals are over 100% for 🎉 emoji
+    const monthlyGoalPercent = (streakStats.monthlyDistance / streakStats.monthlyGoal) * 100;
+    const yearlyGoalPercent = (streakStats.yearlyDistance / streakStats.yearlyGoal) * 100;
     
-    const streakSection = `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-📊 ${metersToKm(streakData.totalDistance)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
-Monthly: ${metersToKm(stats.monthlyDistance)}/${metersToKm(stats.monthlyGoal)} km  | ⛰️ ${Math.round(stats.monthlyElevation)} m
-${generateProgressBars(stats.monthlyDistance, stats.monthlyGoal, 'monthly')}
-Yearly: ${metersToKm(stats.yearlyDistance)}/${metersToKm(stats.yearlyGoal)} km  | ⛰️ ${Math.round(stats.yearlyElevation)} m
-${generateProgressBars(stats.yearlyDistance, stats.yearlyGoal, 'yearly')}
+    const monthlyCelebration = monthlyGoalPercent >= 100 ? ' 🎉' : '';
+    const yearlyCelebration = yearlyGoalPercent >= 100 ? ' 🎉' : '';
+    
+    const description = `🏃🏻‍♂️Daily Run Streak: Day ${streakStats.currentStreak} 👍🏻
+📊 ${metersToKm(streakStats.totalDistance)} km | ⏱️ ${formatTime(streakStats.totalTime)} | ⛰️ ${Math.round(streakStats.totalElevation)} m
+Monthly: ${metersToKm(streakStats.monthlyDistance)}/${metersToKm(streakStats.monthlyGoal)} km | ⛰️ ${Math.round(streakStats.monthlyElevation)} m
+${generateProgressBars(streakStats.monthlyDistance, streakStats.monthlyGoal, 'monthly')}${monthlyCelebration}
+Yearly: ${metersToKm(streakStats.yearlyDistance)}/${metersToKm(streakStats.yearlyGoal)} km | ⛰️ ${Math.round(streakStats.yearlyElevation)} m
+${generateProgressBars(streakStats.yearlyDistance, streakStats.yearlyGoal, 'yearly')}${yearlyCelebration}
 📷 @DailyRunGuy`;
 
     if (existingDescription) {
-      return `${streakSection}\n\n${existingDescription}`;
+      return `${description}\n\n${existingDescription}`;
     }
     
-    return streakSection;
+    return description;
   } catch (error) {
     console.error('Error generating description:', error.message);
     
-    // Fallback description if stats can't be loaded
-    const stats = await loadStatsData().catch(() => null);
-    
-    if (stats) {
-      return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-📊 ${metersToKm(streakData.totalDistance)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
-Monthly: ${metersToKm(stats.monthlyDistance)}/${metersToKm(stats.monthlyGoal)} km
-Yearly: ${metersToKm(stats.yearlyDistance)}/${metersToKm(stats.yearlyGoal)} km
+    // Fallback description
+    return `🏃🏻‍♂️Daily Run Streak: Day ${streakStats.currentStreak} 👍🏻
+📊 ${metersToKm(streakStats.totalDistance)} km | ⏱️ ${formatTime(streakStats.totalTime)} | ⛰️ ${Math.round(streakStats.totalElevation)} m
 📷 @DailyRunGuy`;
-    } else {
-      return `🏃🏻‍♂️Daily Run Streak: Day ${streakData.currentStreak} 👍🏻
-📊 ${metersToKm(streakData.totalDistance)} km | ⏱️ ${formatTime(streakData.totalTime)} | ⛰️ ${Math.round(streakData.totalElevation)} m
-📷 @DailyRunGuy`;
-    }
   }
 }
 

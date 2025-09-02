@@ -1,33 +1,40 @@
 const crypto = require('crypto');
 const stravaApi = require('../services/stravaApi');
-const { updateStatsWithRun } = require('./statsController');
-const { updateRunStreak } = require('./streakController');
-const { loadStreakData } = require('../config/storage');
-const { generateDescription } = require('../utils/descriptionGenerator');
 
-async function processActivity(activityId) {
+async function processActivity(activityId, controllers, storage) {
   try {
+    const { updateStreakStatsWithRun, pushToStravaDescription } = controllers;
+    const { getLastActivity, saveLastActivity } = storage;
+    
     const activity = await stravaApi.getActivity(activityId);
     
-    await updateStatsWithRun(activity);
+    // Only process if it's the most recent activity
+    const lastActivity = await getLastActivity();
+    const activityDate = new Date(activity.start_date);
+    const lastActivityDate = lastActivity.date ? new Date(lastActivity.date) : null;
     
-    // Update description for ALL runs, not just qualifying ones
-    if (activity.type === 'Run') {
-      const streakData = await loadStreakData();
-      const description = await generateDescription(streakData, activityId);
-      await stravaApi.updateActivityDescription(activityId, description);
-      
-      if (activity.distance >= 4500) {
-        const result = await updateRunStreak();
-        console.log('Processed qualifying activity:', activityId, result.message);
-        return result;
-      } else {
-        console.log('Activity added to stats but not streak:', activityId, activity.type, `${(activity.distance / 1000).toFixed(1)} km`);
-        return { message: "Activity added to stats but not streak (distance <4500m)" };
+    if (!lastActivityDate || activityDate > lastActivityDate) {
+      if (activity.type === 'Run') {
+        // Update streakstats
+        await updateStreakStatsWithRun(activity, storage);
+        
+        // Update description
+        await pushToStravaDescription(activity.id, storage);
+        
+        console.log('Processed NEW run activity:', activityId, `${(activity.distance / 1000).toFixed(1)} km`);
+        return { message: "Run activity processed successfully" };
       }
+      
+      // Save non-run activities for date tracking
+      await saveLastActivity({
+        id: activityId,
+        date: activity.start_date,
+        type: activity.type,
+        distance: activity.distance
+      });
     }
     
-    return { message: "Not a run activity" };
+    return { message: "Activity processed or skipped" };
   } catch (error) {
     console.error('Error processing activity:', error.message);
     throw error;

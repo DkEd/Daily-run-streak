@@ -2,40 +2,39 @@ const redisClient = require('./redis');
 
 // Redis key names
 const KEYS = {
-  STATS: 'app:stats',
-  STREAK: 'app:streak',
+  STREAKSTATS: 'app:streakstats',
   TOKENS: 'app:tokens',
-  WEBHOOK_CONFIG: 'app:webhook:config'
+  WEBHOOK_CONFIG: 'app:webhook:config',
+  LAST_ACTIVITY: 'app:last_activity'
 };
 
 // Default structure for initialization
-// In the DEFAULT_DATA object:
 const DEFAULT_DATA = {
-  STATS: {
-    monthlyDistance: 0,
-    yearlyDistance: 0,
-    monthlyTime: 0,
-    yearlyTime: 0,
-    monthlyElevation: 0,
-    yearlyElevation: 0,
-    monthlyGoal: 250000, // 250 km in meters
-    yearlyGoal: 3250000, // 3250 km in meters
-    lastUpdated: new Date().toISOString(),
-    manuallyUpdated: false // ← Make sure this is included
-  },
-  STREAK: {
+  STREAKSTATS: {
+    // Streak data
     currentStreak: 0,
     longestStreak: 0,
+    lastRunDate: null,
+    streakStartDate: new Date().toISOString().split('T')[0],
+    
+    // Stats data (only what's needed for description)
+    monthlyDistance: 0,
+    yearlyDistance: 0,
+    monthlyElevation: 0,
+    yearlyElevation: 0,
+    monthlyGoal: 250000,    // 250 km in meters
+    yearlyGoal: 3250000,    // 3250 km in meters
+    
+    // Totals (for description)
     totalRuns: 0,
     totalDistance: 0,
     totalTime: 0,
     totalElevation: 0,
-    streakStartDate: new Date().toISOString().split('T')[0],
-    lastRunDate: null,
-    manuallyUpdated: false, // ← Make sure this is included
-    lastManualUpdate: null
+    
+    // Management
+    manuallyUpdated: false,
+    lastUpdated: new Date().toISOString()
   },
-  
   TOKENS: {
     access_token: null,
     refresh_token: null,
@@ -45,15 +44,21 @@ const DEFAULT_DATA = {
   WEBHOOK_CONFIG: {
     verifyToken: process.env.WEBHOOK_VERIFY_TOKEN || 'DailyRunGuy_Verify_12345',
     secret: process.env.WEBHOOK_SECRET || 'your-webhook-secret-here'
+  },
+  LAST_ACTIVITY: {
+    id: null,
+    date: null,
+    type: null,
+    distance: 0
   }
 };
 
 // In-memory fallback for when Redis is unavailable
 let memoryFallback = {
-  [KEYS.STATS]: { ...DEFAULT_DATA.STATS },
-  [KEYS.STREAK]: { ...DEFAULT_DATA.STREAK },
+  [KEYS.STREAKSTATS]: { ...DEFAULT_DATA.STREAKSTATS },
   [KEYS.TOKENS]: { ...DEFAULT_DATA.TOKENS },
-  [KEYS.WEBHOOK_CONFIG]: { ...DEFAULT_DATA.WEBHOOK_CONFIG }
+  [KEYS.WEBHOOK_CONFIG]: { ...DEFAULT_DATA.WEBHOOK_CONFIG },
+  [KEYS.LAST_ACTIVITY]: { ...DEFAULT_DATA.LAST_ACTIVITY }
 };
 
 async function initializeData() {
@@ -67,19 +72,14 @@ async function initializeData() {
       console.log('Redis is available, initializing data...');
       
       // Check if data exists, if not initialize with defaults
-      const statsExist = await redisClient.exists(KEYS.STATS);
-      const streakExist = await redisClient.exists(KEYS.STREAK);
+      const streakstatsExist = await redisClient.exists(KEYS.STREAKSTATS);
       const tokensExist = await redisClient.exists(KEYS.TOKENS);
       const webhookExist = await redisClient.exists(KEYS.WEBHOOK_CONFIG);
+      const lastActivityExist = await redisClient.exists(KEYS.LAST_ACTIVITY);
 
-      if (!statsExist) {
-        console.log('Initializing stats data...');
-        await redisClient.set(KEYS.STATS, DEFAULT_DATA.STATS);
-      }
-      
-      if (!streakExist) {
-        console.log('Initializing streak data...');
-        await redisClient.set(KEYS.STREAK, DEFAULT_DATA.STREAK);
+      if (!streakstatsExist) {
+        console.log('Initializing streakstats data...');
+        await redisClient.set(KEYS.STREAKSTATS, DEFAULT_DATA.STREAKSTATS);
       }
       
       if (!tokensExist) {
@@ -92,6 +92,11 @@ async function initializeData() {
         await redisClient.set(KEYS.WEBHOOK_CONFIG, DEFAULT_DATA.WEBHOOK_CONFIG);
       }
 
+      if (!lastActivityExist) {
+        console.log('Initializing last activity data...');
+        await redisClient.set(KEYS.LAST_ACTIVITY, DEFAULT_DATA.LAST_ACTIVITY);
+      }
+
       console.log('Data initialization completed in Redis');
     } else {
       console.log('Using in-memory fallback storage (Redis unavailable)');
@@ -102,70 +107,45 @@ async function initializeData() {
   }
 }
 
-// Stats functions
-async function loadStatsData() {
+// Streakstats functions
+async function loadStreakStats() {
   try {
     const redisAvailable = await redisClient.healthCheck();
+    let data;
+    
     if (redisAvailable) {
-      const data = await redisClient.get(KEYS.STATS);
-      return data || DEFAULT_DATA.STATS;
+      data = await redisClient.get(KEYS.STREAKSTATS);
+      console.log('DEBUG: Loaded from Redis - totalTime:', data?.totalTime);
     } else {
-      return memoryFallback[KEYS.STATS];
+      data = memoryFallback[KEYS.STREAKSTATS];
+      console.log('DEBUG: Loaded from memory - totalTime:', data?.totalTime);
     }
+    
+    return data || DEFAULT_DATA.STREAKSTATS;
   } catch (error) {
-    console.error('Error loading stats data:', error.message);
-    return memoryFallback[KEYS.STATS];
+    console.error('Error loading streakstats:', error.message);
+    return memoryFallback[KEYS.STREAKSTATS];
   }
 }
 
-async function saveStatsData(data) {
+async function saveStreakStats(data) {
   try {
     data.lastUpdated = new Date().toISOString();
     
-    const redisAvailable = await redisClient.healthCheck();
-    if (redisAvailable) {
-      await redisClient.set(KEYS.STATS, data);
-    } else {
-      memoryFallback[KEYS.STATS] = data;
-    }
-    return true;
-  } catch (error) {
-    console.error('Error saving stats data:', error.message);
-    memoryFallback[KEYS.STATS] = data;
-    return false;
-  }
-}
-
-// Streak functions
-async function loadStreakData() {
-  try {
-    const redisAvailable = await redisClient.healthCheck();
-    if (redisAvailable) {
-      const data = await redisClient.get(KEYS.STREAK);
-      return data || DEFAULT_DATA.STREAK;
-    } else {
-      return memoryFallback[KEYS.STREAK];
-    }
-  } catch (error) {
-    console.error('Error loading streak data:', error.message);
-    return memoryFallback[KEYS.STREAK];
-  }
-}
-
-async function saveStreakData(data) {
-  try {
-    data.lastManualUpdate = new Date().toISOString();
+    console.log('DEBUG: Saving streakstats - totalTime:', data.totalTime);
     
     const redisAvailable = await redisClient.healthCheck();
     if (redisAvailable) {
-      await redisClient.set(KEYS.STREAK, data);
+      await redisClient.set(KEYS.STREAKSTATS, data);
+      console.log('DEBUG: Saved to Redis successfully');
     } else {
-      memoryFallback[KEYS.STREAK] = data;
+      memoryFallback[KEYS.STREAKSTATS] = data;
+      console.log('DEBUG: Saved to memory fallback');
     }
     return true;
   } catch (error) {
-    console.error('Error saving streak data:', error.message);
-    memoryFallback[KEYS.STREAK] = data;
+    console.error('Error saving streakstats:', error.message);
+    memoryFallback[KEYS.STREAKSTATS] = data;
     return false;
   }
 }
@@ -240,6 +220,38 @@ async function saveWebhookConfig(config) {
   }
 }
 
+// Last activity functions
+async function saveLastActivity(activity) {
+  try {
+    const redisAvailable = await redisClient.healthCheck();
+    if (redisAvailable) {
+      await redisClient.set(KEYS.LAST_ACTIVITY, activity);
+    } else {
+      memoryFallback[KEYS.LAST_ACTIVITY] = activity;
+    }
+    return true;
+  } catch (error) {
+    console.error('Error saving last activity:', error.message);
+    memoryFallback[KEYS.LAST_ACTIVITY] = activity;
+    return false;
+  }
+}
+
+async function getLastActivity() {
+  try {
+    const redisAvailable = await redisClient.healthCheck();
+    if (redisAvailable) {
+      const data = await redisClient.get(KEYS.LAST_ACTIVITY);
+      return data || DEFAULT_DATA.LAST_ACTIVITY;
+    } else {
+      return memoryFallback[KEYS.LAST_ACTIVITY];
+    }
+  } catch (error) {
+    console.error('Error loading last activity:', error.message);
+    return memoryFallback[KEYS.LAST_ACTIVITY];
+  }
+}
+
 // Health check
 async function healthCheck() {
   return await redisClient.healthCheck();
@@ -248,13 +260,13 @@ async function healthCheck() {
 // Export functions
 module.exports = {
   initializeData,
-  loadStatsData,
-  saveStatsData,
-  loadStreakData,
-  saveStreakData,
+  loadStreakStats,
+  saveStreakStats,
   saveStravaTokens,
   getStravaTokens,
   getWebhookConfig,
   saveWebhookConfig,
+  saveLastActivity,
+  getLastActivity,
   healthCheck
 };
