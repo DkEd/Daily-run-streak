@@ -1,9 +1,6 @@
 const stravaApi = require('../services/stravaApi');
 const { generateDescription } = require('../utils/descriptionGenerator');
 
-// Remove the storage import here and accept it as a parameter in functions
-// This breaks the circular dependency
-
 async function updateStreakStatsWithRun(activity, storage) {
   try {
     const { loadStreakStats, saveStreakStats } = storage;
