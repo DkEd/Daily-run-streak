@@ -12,22 +12,16 @@ router.post('/refresh-last-activity', async (req, res) => {
       return res.redirect('/auth/strava');
     }
     
-    const activities = await stravaApi.getRecentActivities(1);
+    // Use the improved saveLastActivity function which fetches the latest
+    const result = await saveLastActivity(); // Call without parameters to trigger auto-fetch
     
-    if (activities.length > 0) {
-      const activity = activities[0];
-      
-      await saveLastActivity({
-        id: activity.id,
-        date: activity.start_date,
-        type: activity.type,
-        distance: activity.distance
-      });
-      
-      console.log('Refreshed last activity from Strava:', activity.id, activity.type);
+    if (result) {
+      // Get the newly saved activity to confirm
+      const lastActivity = await getLastActivity();
+      console.log('Refreshed last activity from Strava:', lastActivity.id, lastActivity.type);
       res.redirect('/xapp?message=Latest activity refreshed from Strava');
     } else {
-      res.redirect('/xapp?error=No activities found on Strava');
+      res.redirect('/xapp?error=Failed to refresh latest activity');
     }
   } catch (error) {
     console.error('Error refreshing last activity:', error.message);
@@ -161,6 +155,8 @@ router.get('/xapp', async (req, res) => {
               <h3>Last Activity</h3>
               <p>${lastActivity.date ? 
                 `${new Date(lastActivity.date).toLocaleString()} (${lastActivity.type})<br>
+                 ${lastActivity.distance ? `${metersToKm(lastActivity.distance)} km` : ''}<br>
+                 ID: ${lastActivity.id}<br>
                  <form action="/refresh-last-activity" method="POST" style="display: inline;">
                    <button type="submit" class="btn btn-sm">Refresh</button>
                  </form>` : 
@@ -197,6 +193,7 @@ router.get('/xapp', async (req, res) => {
             <div class="description-meta">
               ${lastActivity.date ? `From activity on ${new Date(lastActivity.date).toLocaleDateString()}` : 'No activity data'}
               ${lastActivity.distance ? ` • ${metersToKm(lastActivity.distance)} km` : ''}
+              ${lastActivity.id ? ` • ID: ${lastActivity.id}` : ''}
             </div>
           </div>
 
