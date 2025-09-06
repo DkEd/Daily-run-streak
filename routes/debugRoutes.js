@@ -64,6 +64,7 @@ router.get('/debug', async (req, res) => {
               <li><a href="/debug/env">⚙️ Environment Variables</a> - Check configuration</li>
               <li><a href="/debug/strava-api">🔄 Strava API Test</a> - Test Strava API connection</li>
               <li><a href="/debug/totaltime">⏱️ TotalTime Debug</a> - Check totalTime value</li>
+              <li><a href="/debug/last-activity">📋 Last Activity Debug</a> - Check last activity data</li>
             </ul>
           </div>
 
@@ -129,6 +130,72 @@ router.get('/debug/totaltime', async (req, res) => {
             <a href="/xapp" class="btn">⚙️ Back to Admin</a>
             <a href="/debug" class="btn">🐛 Back to Debug</a>
           </div>
+        </div>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/debug">Back to Debug</a>`);
+  }
+});
+
+// Last Activity Debug endpoint
+router.get('/debug/last-activity', async (req, res) => {
+  try {
+    const stravaApi = require('../services/stravaApi');
+    
+    const lastActivity = await getLastActivity();
+    const activities = await stravaApi.getRecentActivities(3); // Get 3 most recent
+    
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Last Activity Debug</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                 background: #f8fafc; color: #1f2937; padding: 20px; }
+          .container { max-width: 1200px; margin: 0 auto; }
+          h1 { color: #1f2937; margin-bottom: 1rem; }
+          h2 { color: #374151; margin: 1.5rem 0 1rem 0; }
+          .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+          pre { background: #f9fafb; padding: 1rem; border-radius: 6px; overflow-x: auto; }
+          .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #3b82f6; color: white; 
+                text-decoration: none; border-radius: 6px; margin: 0.5rem; }
+          .btn:hover { background: #2563eb; }
+          .btn-outline { background: transparent; border: 1px solid #d1d5db; color: #374151; }
+          .btn-outline:hover { background: #f9fafb; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Last Activity Debug</h1>
+          
+          <div class="card">
+            <h2>Stored Last Activity</h2>
+            <pre>${JSON.stringify(lastActivity, null, 2)}</pre>
+          </div>
+          
+          <div class="card">
+            <h2>Actual Latest Activities from Strava</h2>
+            <pre>${JSON.stringify(activities.map(a => ({
+              id: a.id,
+              name: a.name,
+              type: a.type,
+              date: a.start_date,
+              distance: a.distance,
+              moving_time: a.moving_time
+            })), null, 2)}</pre>
+          </div>
+          
+          <form action="/refresh-last-activity" method="POST">
+            <button type="submit" class="btn">Force Refresh Last Activity</button>
+          </form>
+          
+          <a href="/debug" class="btn">Back to Debug</a>
+          <a href="/xapp" class="btn-outline">Admin Panel</a>
         </div>
       </body>
       </html>
