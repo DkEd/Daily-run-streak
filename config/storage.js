@@ -1,4 +1,5 @@
 const redisClient = require('./redis');
+const stravaApi = require('../services/stravaApi');
 
 // Redis key names
 const KEYS = {
@@ -223,16 +224,41 @@ async function saveWebhookConfig(config) {
 // Last activity functions
 async function saveLastActivity(activity) {
   try {
+    // If no activity provided, fetch the latest from Strava
+    let activityToSave = activity;
+    if (!activity || !activity.id) {
+      try {
+        const activities = await stravaApi.getRecentActivities(1);
+        if (activities.length > 0) {
+          activityToSave = {
+            id: activities[0].id,
+            date: activities[0].start_date,
+            type: activities[0].type,
+            distance: activities[0].distance
+          };
+          console.log('Fetched latest activity for saving:', activityToSave.id);
+        }
+      } catch (error) {
+        console.error('Error fetching latest activity for saving:', error.message);
+        // If fetch fails, use what was provided or default
+        activityToSave = activity || DEFAULT_DATA.LAST_ACTIVITY;
+      }
+    }
+
     const redisAvailable = await redisClient.healthCheck();
     if (redisAvailable) {
-      await redisClient.set(KEYS.LAST_ACTIVITY, activity);
+      await redisClient.set(KEYS.LAST_ACTIVITY, activityToSave);
     } else {
-      memoryFallback[KEYS.LAST_ACTIVITY] = activity;
+      memoryFallback[KEYS.LAST_ACTIVITY] = activityToSave;
     }
+    
+    console.log('Saved last activity:', activityToSave.id, activityToSave.type, new Date(activityToSave.date).toLocaleString());
     return true;
   } catch (error) {
     console.error('Error saving last activity:', error.message);
-    memoryFallback[KEYS.LAST_ACTIVITY] = activity;
+    if (activity) {
+      memoryFallback[KEYS.LAST_ACTIVITY] = activity;
+    }
     return false;
   }
 }
@@ -240,12 +266,36 @@ async function saveLastActivity(activity) {
 async function getLastActivity() {
   try {
     const redisAvailable = await redisClient.healthCheck();
+    let data;
+    
     if (redisAvailable) {
-      const data = await redisClient.get(KEYS.LAST_ACTIVITY);
-      return data || DEFAULT_DATA.LAST_ACTIVITY;
+      data = await redisClient.get(KEYS.LAST_ACTIVITY);
     } else {
-      return memoryFallback[KEYS.LAST_ACTIVITY];
+      data = memoryFallback[KEYS.LAST_ACTIVITY];
     }
+    
+    // If no data or data is stale, try to get the real latest activity
+    if (!data || !data.id) {
+      try {
+        const activities = await stravaApi.getRecentActivities(1);
+        if (activities.length > 0) {
+          const latestActivity = {
+            id: activities[0].id,
+            date: activities[0].start_date,
+            type: activities[0].type,
+            distance: activities[0].distance
+          };
+          
+          // Save the correct activity
+          await saveLastActivity(latestActivity);
+          return latestActivity;
+        }
+      } catch (error) {
+        console.error('Error fetching latest activity:', error.message);
+      }
+    }
+    
+    return data || DEFAULT_DATA.LAST_ACTIVITY;
   } catch (error) {
     console.error('Error loading last activity:', error.message);
     return memoryFallback[KEYS.LAST_ACTIVITY];
