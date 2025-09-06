@@ -177,7 +177,7 @@ async function pushToStravaDescription(activityId, storage) {
     const { loadStreakStats, saveLastActivity } = storage;
     const streakStats = await loadStreakStats();
     
-    // If no activity ID provided, get the most recent one
+    // ALWAYS get the most recent activity if no ID is provided
     let activity;
     if (!activityId) {
       const activities = await stravaApi.getRecentActivities(1);
