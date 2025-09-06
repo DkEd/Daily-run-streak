@@ -45,11 +45,11 @@ router.post('/webhook', async (req, res) => {
     console.log('Webhook received:', event.object_type, event.aspect_type, event.object_id);
     
     if (event.object_type === 'activity' && event.aspect_type === 'create') {
-      processActivity(event.object_id, {
+      // IGNORE the specific activity ID and process the VERY LATEST activity
+      processActivity(null, { // Pass null to trigger latest activity fetch
         updateStreakStatsWithRun,
         pushToStravaDescription
       }, {
-        getLastActivity,
         saveLastActivity,
         loadStreakStats,
         saveStreakStats
