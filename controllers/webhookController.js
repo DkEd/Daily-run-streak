@@ -4,57 +4,47 @@ const stravaApi = require('../services/stravaApi');
 async function processActivity(activityId, controllers, storage) {
   try {
     const { updateStreakStatsWithRun, pushToStravaDescription } = controllers;
-    const { getLastActivity, saveLastActivity } = storage;
+    const { saveLastActivity } = storage;
     
-    const activity = await stravaApi.getActivity(activityId);
+    // ALWAYS GET THE VERY LATEST ACTIVITY FROM STRAVA (IGNORE THE WEBHOOK ACTIVITY ID)
+    const activities = await stravaApi.getRecentActivities(1);
+    const latestActivity = activities[0];
     
-    // Only process if it's the most recent activity
-    const lastActivity = await getLastActivity();
-    const activityDate = new Date(activity.start_date);
-    const lastActivityDate = lastActivity.date ? new Date(lastActivity.date) : null;
-    
-    // Check if activity is from yesterday or older (ignore old activities)
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    yesterday.setHours(0, 0, 0, 0);
-    
-    const activityDay = new Date(activityDate);
-    activityDay.setHours(0, 0, 0, 0);
-    
-    if (activityDay < yesterday) {
-      console.log('Ignoring old activity from:', activityDate.toISOString());
-      return { message: "Old activity ignored" };
+    if (!latestActivity) {
+      return { message: "No activities found" };
     }
-    
-    if (!lastActivityDate || activityDate > lastActivityDate) {
-      if (activity.type === 'Run') {
-        // Update streakstats
-        await updateStreakStatsWithRun(activity, storage);
-        
-        // Update description ONLY if this is the most recent activity
-        await pushToStravaDescription(activity.id, storage);
-        
-        console.log('Processed NEW run activity:', activityId, `${(activity.distance / 1000).toFixed(1)} km`);
-        return { message: "Run activity processed successfully" };
-      }
+
+    // Only process runs
+    if (latestActivity.type === 'Run') {
+      // Update streakstats with the latest run
+      await updateStreakStatsWithRun(latestActivity, storage);
       
-      // Save non-run activities for date tracking
+      // Update description of the LATEST activity
+      await pushToStravaDescription(latestActivity.id, storage);
+      
+      // Optional: Still save it as last activity for display purposes
       await saveLastActivity({
-        id: activityId,
-        date: activity.start_date,
-        type: activity.type,
-        distance: activity.distance
+        id: latestActivity.id,
+        date: latestActivity.start_date,
+        type: latestActivity.type,
+        distance: latestActivity.distance
       });
-    } else if (activityDate.getTime() === lastActivityDate.getTime() && activity.id === lastActivity.id) {
-      // Same activity as last processed - only update description if specifically requested
-      console.log('Re-processing same activity, updating description only:', activityId);
-      await pushToStravaDescription(activity.id, storage);
-      return { message: "Activity description updated" };
+      
+      console.log('Processed LATEST run activity:', latestActivity.id, `${(latestActivity.distance / 1000).toFixed(1)} km`);
+      return { message: "Latest run activity processed successfully" };
     }
     
-    return { message: "Activity processed or skipped" };
+    // Save non-run activities for display only
+    await saveLastActivity({
+      id: latestActivity.id,
+      date: latestActivity.start_date,
+      type: latestActivity.type,
+      distance: latestActivity.distance
+    });
+    
+    return { message: "Latest activity was not a run" };
   } catch (error) {
-    console.error('Error processing activity:', error.message);
+    console.error('Error processing latest activity:', error.message);
     throw error;
   }
 }
